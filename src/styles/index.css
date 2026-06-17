@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: #0f172a;
+  /* Avoid the browser hijacking touch gestures meant for the canvas. */
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+/* Let text inputs and scrollable panels behave normally for touch. */
+input,
+textarea,
+select,
+.react-flow__minimap,
+[class*='overflow-'] {
+  touch-action: auto;
+}

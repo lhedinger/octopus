@@ -1,0 +1,84 @@
+import type { Edge, Node } from '@xyflow/react';
+import type { ArchDocument, ArchEdge, ArchNode, ComponentKind, EdgeKind } from './types';
+
+/** Data carried on a React Flow node for our custom renderer. */
+export interface ComponentNodeData extends Record<string, unknown> {
+  kind: ComponentKind;
+  label: string;
+  description?: string;
+  meta?: Record<string, unknown>;
+}
+
+export type FlowNode = Node<ComponentNodeData, 'component'>;
+export type FlowEdge = Edge;
+
+export function nodeToFlow(node: ArchNode): FlowNode {
+  return {
+    id: node.id,
+    type: 'component',
+    position: node.position,
+    parentId: node.parentId,
+    data: {
+      kind: node.kind,
+      label: node.label,
+      description: node.description,
+      meta: node.meta,
+    },
+  };
+}
+
+export function edgeToFlow(edge: ArchEdge): FlowEdge {
+  return {
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    label: edge.label,
+    type: 'smoothstep',
+    animated: edge.kind === 'async',
+    data: { kind: edge.kind },
+  };
+}
+
+export function toReactFlow(doc: ArchDocument): { nodes: FlowNode[]; edges: FlowEdge[] } {
+  return {
+    nodes: doc.nodes.map(nodeToFlow),
+    edges: doc.edges.map(edgeToFlow),
+  };
+}
+
+export function flowToNode(node: FlowNode): ArchNode {
+  return {
+    id: node.id,
+    kind: node.data.kind,
+    label: node.data.label,
+    description: node.data.description,
+    position: node.position,
+    parentId: node.parentId,
+    meta: node.data.meta,
+  };
+}
+
+export function flowToEdge(edge: FlowEdge): ArchEdge {
+  return {
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    label: typeof edge.label === 'string' ? edge.label : undefined,
+    kind: (edge.data?.kind as EdgeKind | undefined) ?? 'sync',
+  };
+}
+
+export function fromReactFlow(
+  base: Pick<ArchDocument, 'id' | 'name' | 'version'>,
+  nodes: FlowNode[],
+  edges: FlowEdge[],
+): ArchDocument {
+  return {
+    version: base.version,
+    id: base.id,
+    name: base.name,
+    nodes: nodes.map(flowToNode),
+    edges: edges.map(flowToEdge),
+    updatedAt: new Date().toISOString(),
+  };
+}
