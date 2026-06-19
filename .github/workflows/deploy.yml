@@ -30,9 +30,6 @@ jobs:
       - run: npm ci
       - run: npm run build
       - uses: actions/configure-pages@v5
-        with:
-          # Turn on GitHub Pages automatically if it isn't enabled yet.
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
