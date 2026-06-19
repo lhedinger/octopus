@@ -73,7 +73,15 @@ function CanvasInner() {
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1.5} color="#334155" />
         <Controls className="!bg-panelLight !text-slate-200" />
-        <MiniMap pannable zoomable className="!hidden sm:!block" maskColor="rgba(15,23,42,0.7)" nodeColor="#38bdf8" />
+        <MiniMap
+          pannable
+          zoomable
+          className="!hidden sm:!block"
+          bgColor="#0f172a"
+          maskColor="rgba(15,23,42,0.6)"
+          nodeColor="#38bdf8"
+          nodeStrokeColor="#1e293b"
+        />
       </ReactFlow>
     </div>
   );

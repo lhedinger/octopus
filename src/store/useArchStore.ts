@@ -162,5 +162,5 @@ export const useArchStore = create<ArchState>((set, get) => {
 /** Default spawn position for tap-to-place, fanned out so nodes don't stack. */
 export function nextSpawnPosition(): { x: number; y: number } {
   const i = spawnIndex;
-  return { x: 120 + (i % 4) * 70, y: 120 + Math.floor(i / 4) * 70 };
+  return { x: 80 + (i % 4) * 170, y: 80 + Math.floor(i / 4) * 180 };
 }
