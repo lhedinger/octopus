@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - claude/architecture-drag-drop-editor-2yucoj
   workflow_dispatch:
 
 # Allow the workflow to publish to GitHub Pages.
