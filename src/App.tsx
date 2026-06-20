@@ -16,12 +16,10 @@ function isEditingText(): boolean {
 }
 
 export default function App() {
-  const hasSelection = useArchStore((s) => Boolean(s.selectedNodeId || s.selectedEdgeId));
+  const isEmpty = useArchStore((s) => s.nodes.length === 0);
 
   // Autosave on any document-affecting change.
-  useEffect(() => {
-    return useArchStore.subscribe(autosave);
-  }, []);
+  useEffect(() => useArchStore.subscribe(autosave), []);
 
   // Delete / Backspace removes the current selection (unless typing).
   useEffect(() => {
@@ -34,34 +32,24 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // The canvas fills the whole screen; everything else floats over it.
   return (
-    <div className="flex h-[100dvh] flex-col bg-panel text-slate-100">
-      <Toolbar />
-      <div className="relative flex min-h-0 flex-1 overflow-hidden">
-        <aside className="hidden border-r border-white/10 sm:block">
-          <Palette />
-        </aside>
-
-        <main className="relative min-w-0 flex-1">
-          <Canvas />
-        </main>
-
-        <aside className="hidden w-72 shrink-0 overflow-y-auto border-l border-white/10 sm:block">
-          <Inspector />
-        </aside>
-
-        {/* Mobile: inspector slides up over the palette when something is selected. */}
-        <div className="absolute inset-x-0 bottom-0 sm:hidden">
-          {hasSelection && (
-            <div className="max-h-[42vh] overflow-y-auto border-t border-white/10 bg-panel/95 backdrop-blur">
-              <Inspector />
-            </div>
-          )}
-          <div className="border-t border-white/10 bg-panel/95 backdrop-blur">
-            <Palette />
-          </div>
-        </div>
+    <div className="relative h-[100dvh] w-screen overflow-hidden bg-panel text-slate-100">
+      <div className="absolute inset-0">
+        <Canvas />
       </div>
+
+      {isEmpty && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4">
+          <p className="rounded-xl bg-panel/50 px-4 py-2 text-center text-sm text-slate-400 backdrop-blur">
+            Tap a component below to place it · drag to pan · scroll or pinch to zoom
+          </p>
+        </div>
+      )}
+
+      <Toolbar />
+      <Inspector />
+      <Palette />
     </div>
   );
 }

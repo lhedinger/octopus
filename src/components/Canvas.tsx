@@ -2,7 +2,6 @@ import { useCallback, useRef } from 'react';
 import {
   Background,
   BackgroundVariant,
-  Controls,
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
@@ -67,20 +66,23 @@ function CanvasInner() {
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
         fitView
+        fitViewOptions={{ maxZoom: 0.5 }}
+        defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
+        minZoom={0.2}
+        maxZoom={2}
         proOptions={{ hideAttribution: true }}
         zoomOnPinch
-        panOnScroll
-        selectionOnDrag
+        zoomOnScroll
         snapToGrid
         snapGrid={[TILE_SIZE, TILE_SIZE]}
       >
         <Background id="subgrid" variant={BackgroundVariant.Lines} gap={SUB_GRID} lineWidth={1} color="#172033" />
         <Background id="tiles" variant={BackgroundVariant.Lines} gap={TILE_SIZE} lineWidth={1} color="#2b3a52" />
-        <Controls className="!bg-panelLight !text-slate-200" />
         <MiniMap
           pannable
           zoomable
-          className="!hidden sm:!block"
+          style={{ width: 150, height: 96 }}
+          className="!hidden !rounded-lg !border !border-white/10 opacity-70 transition-opacity hover:opacity-100 sm:!block"
           bgColor="#0f172a"
           maskColor="rgba(15,23,42,0.6)"
           nodeColor="#38bdf8"
