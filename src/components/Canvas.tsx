@@ -98,7 +98,8 @@ function CanvasInner() {
           pannable
           zoomable
           style={{ width: 150, height: 96 }}
-          className={`!rounded-lg !border !border-white/10 transition-opacity duration-300 ${
+          // Below the toolbar on mobile (clear of the bottom dock), bottom-right on desktop.
+          className={`!m-0 !right-3 !top-14 !bottom-auto sm:!top-auto sm:!bottom-3 !rounded-lg !border !border-white/10 transition-opacity duration-300 ${
             minimapShown ? 'opacity-80' : 'pointer-events-none opacity-0'
           }`}
           bgColor="#0f172a"
