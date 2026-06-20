@@ -41,7 +41,7 @@ describe('useArchStore', () => {
 
   it('connects via the React Flow onConnect handler', () => {
     store().addNode('service', { x: 0, y: 0 });
-    store().addNode('database', { x: 50, y: 50 });
+    store().addNode('queue', { x: 50, y: 50 });
     const [a, b] = store().nodes;
     store().onConnect({ source: a.id, target: b.id, sourceHandle: null, targetHandle: null });
     expect(store().edges).toHaveLength(1);
@@ -49,7 +49,7 @@ describe('useArchStore', () => {
 
   it('deletes a selected node and its connected edges', () => {
     store().addNode('service', { x: 0, y: 0 });
-    store().addNode('database', { x: 50, y: 50 });
+    store().addNode('queue', { x: 50, y: 50 });
     const [a, b] = store().nodes;
     store().onConnect({ source: a.id, target: b.id, sourceHandle: null, targetHandle: null });
 
@@ -59,6 +59,32 @@ describe('useArchStore', () => {
     expect(store().nodes).toHaveLength(1);
     expect(store().nodes[0].id).toBe(b.id);
     expect(store().edges).toHaveLength(0);
+  });
+
+  it('attaches storage to a microservice host and cascades on delete', () => {
+    store().addNode('microservice', { x: 0, y: 0 });
+    const hostId = store().nodes[0].id;
+    store().addStorage(hostId, 'database');
+    store().addStorage(hostId, 'cache');
+
+    const storages = store().nodes.filter((n) => n.parentId === hostId);
+    expect(storages).toHaveLength(2);
+    expect(storages.every((n) => n.data.attached && n.draggable === false)).toBe(true);
+
+    store().select(hostId);
+    store().deleteSelected();
+    expect(store().nodes).toHaveLength(0); // host + both storages gone
+  });
+
+  it('blocks an invalid connection and surfaces a reason', () => {
+    store().addNode('microservice', { x: 0, y: 0 });
+    store().addNode('queue', { x: 200, y: 0 });
+    const [ms, q] = store().nodes;
+    store().setTapConnect(true);
+    store().tapNode(ms.id);
+    store().tapNode(q.id);
+    expect(store().edges).toHaveLength(0);
+    expect(store().notice).toBeTruthy();
   });
 
   it('round-trips its state to an ArchDocument, snapping placement to a tile', () => {

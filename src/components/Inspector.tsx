@@ -1,5 +1,5 @@
 import type { EdgeKind } from '../model/types';
-import { paletteEntry } from '../model/palette';
+import { paletteEntry, STORAGE_PALETTE } from '../model/palette';
 import { useArchStore } from '../store/useArchStore';
 
 const EDGE_KINDS: EdgeKind[] = ['sync', 'async', 'data'];
@@ -19,6 +19,7 @@ export function Inspector() {
   const updateNodeData = useArchStore((s) => s.updateNodeData);
   const updateEdge = useArchStore((s) => s.updateEdge);
   const deleteSelected = useArchStore((s) => s.deleteSelected);
+  const addStorage = useArchStore((s) => s.addStorage);
   const select = useArchStore((s) => s.select);
 
   if ((!node && !edge) || (!selectedNodeId && !selectedEdgeId)) return null;
@@ -56,6 +57,25 @@ export function Inspector() {
               placeholder="What does this component do?"
             />
           </div>
+
+          {node.data.kind === 'microservice' && (
+            <div>
+              <label className={labelCls}>Add storage</label>
+              <div className="flex gap-1.5">
+                {STORAGE_PALETTE.map((s) => (
+                  <button
+                    key={s.kind}
+                    onClick={() => addStorage(node.id, s.kind)}
+                    className="flex-1 rounded-lg border border-white/10 px-2 py-1.5 text-xs text-slate-200 transition hover:border-accent hover:bg-white/5"
+                  >
+                    + {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {node.data.attached && <p className="text-[11px] text-slate-500">Attached to its microservice — moves and is removed with it.</p>}
         </div>
       )}
 

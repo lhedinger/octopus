@@ -12,6 +12,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { useArchStore } from '../store/useArchStore';
 import type { ComponentKind } from '../model/types';
+import { canConnect } from '../model/relationships';
 import { TILE_SIZE, SUB_GRID } from '../model/grid';
 import type { FlowNode } from '../model/mapping';
 import { ComponentNode } from './nodes/ComponentNode';
@@ -32,6 +33,13 @@ function CanvasInner() {
   const addNode = useArchStore((s) => s.addNode);
   const tapNode = useArchStore((s) => s.tapNode);
   const select = useArchStore((s) => s.select);
+
+  const isValidConnection = useCallback((c: { source?: string | null; target?: string | null }) => {
+    const ns = useArchStore.getState().nodes;
+    const s = ns.find((n) => n.id === c.source);
+    const t = ns.find((n) => n.id === c.target);
+    return !!s && !!t && canConnect(s.data.kind, t.data.kind).ok;
+  }, []);
 
   const onNodeClick: NodeMouseHandler<FlowNode> = useCallback((_, node) => tapNode(node.id), [tapNode]);
   const onEdgeClick: EdgeMouseHandler = useCallback((_, edge) => select(undefined, edge.id), [select]);
@@ -77,6 +85,7 @@ function CanvasInner() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        isValidConnection={isValidConnection}
         onNodeClick={onNodeClick}
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}

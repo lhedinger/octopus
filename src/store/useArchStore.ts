@@ -9,6 +9,7 @@ import {
 } from '@xyflow/react';
 import type { ArchDocument, ComponentKind, EdgeKind } from '../model/types';
 import { defaultLabel } from '../model/palette';
+import { canConnect } from '../model/relationships';
 import { TILE_SIZE, snapPoint } from '../model/grid';
 import {
   edgeToFlow,
@@ -30,12 +31,15 @@ interface ArchState {
   /** When true, tapping two nodes in turn connects them (touch-friendly). */
   tapConnect: boolean;
   connectSource?: string;
+  /** Transient message shown when an action is blocked by a rule. */
+  notice?: string;
 
   onNodesChange: (changes: NodeChange<FlowNode>[]) => void;
   onEdgesChange: (changes: EdgeChange<FlowEdge>[]) => void;
   onConnect: (connection: Connection) => void;
 
   addNode: (kind: ComponentKind, position: { x: number; y: number }) => void;
+  addStorage: (hostId: string, kind: ComponentKind) => void;
   updateNodeData: (id: string, patch: Partial<ComponentNodeData>) => void;
   updateEdge: (id: string, patch: { label?: string; kind?: EdgeKind }) => void;
   deleteSelected: () => void;
@@ -43,6 +47,7 @@ interface ArchState {
 
   setTapConnect: (on: boolean) => void;
   tapNode: (id: string) => void;
+  clearNotice: () => void;
 
   setDocName: (name: string) => void;
   newDocument: () => void;
@@ -66,6 +71,15 @@ export const useArchStore = create<ArchState>((set, get) => {
     onNodesChange: (changes) => set({ nodes: applyNodeChanges(changes, get().nodes) }),
     onEdgesChange: (changes) => set({ edges: applyEdgeChanges(changes, get().edges) }),
     onConnect: (connection) => {
+      const nodes = get().nodes;
+      const source = nodes.find((n) => n.id === connection.source);
+      const target = nodes.find((n) => n.id === connection.target);
+      if (!source || !target) return;
+      const check = canConnect(source.data.kind, target.data.kind);
+      if (!check.ok) {
+        set({ notice: check.reason });
+        return;
+      }
       const edge = edgeToFlow({
         id: crypto.randomUUID(),
         source: connection.source!,
@@ -85,6 +99,28 @@ export const useArchStore = create<ArchState>((set, get) => {
       };
       spawnIndex++;
       set({ nodes: [...get().nodes, node], selectedNodeId: id, selectedEdgeId: undefined });
+    },
+
+    addStorage: (hostId, kind) => {
+      const { nodes } = get();
+      const host = nodes.find((n) => n.id === hostId);
+      if (!host || host.data.kind !== 'microservice') return;
+      // Slot the new storage below the host: half-tile cells, two per row.
+      const slot = nodes.filter((n) => n.parentId === hostId).length;
+      const size = TILE_SIZE / 2;
+      const gap = 8;
+      const id = crypto.randomUUID();
+      const node: FlowNode = {
+        id,
+        type: 'component',
+        // Position is relative to the host (a React Flow parent).
+        position: { x: (slot % 2) * (size + gap), y: TILE_SIZE + gap + Math.floor(slot / 2) * (size + gap) },
+        parentId: hostId,
+        draggable: false,
+        data: { kind, label: defaultLabel(kind), attached: true },
+      };
+      // Keep the host selected so more storages can be added in a row.
+      set({ nodes: [...nodes, node], selectedNodeId: hostId, selectedEdgeId: undefined });
     },
 
     updateNodeData: (id, patch) =>
@@ -109,9 +145,12 @@ export const useArchStore = create<ArchState>((set, get) => {
     deleteSelected: () => {
       const { selectedNodeId, selectedEdgeId, nodes, edges } = get();
       if (selectedNodeId) {
+        // Deleting a host also removes its attachments (they can't exist alone).
+        const removed = new Set<string>([selectedNodeId]);
+        for (const n of nodes) if (n.parentId && removed.has(n.parentId)) removed.add(n.id);
         set({
-          nodes: nodes.filter((n) => n.id !== selectedNodeId),
-          edges: edges.filter((e) => e.source !== selectedNodeId && e.target !== selectedNodeId),
+          nodes: nodes.filter((n) => !removed.has(n.id)),
+          edges: edges.filter((e) => !removed.has(e.source) && !removed.has(e.target)),
           selectedNodeId: undefined,
         });
       } else if (selectedEdgeId) {
@@ -137,9 +176,19 @@ export const useArchStore = create<ArchState>((set, get) => {
         set({ connectSource: undefined });
         return;
       }
+      const nodes = get().nodes;
+      const source = nodes.find((n) => n.id === connectSource);
+      const target = nodes.find((n) => n.id === id);
+      const check = source && target ? canConnect(source.data.kind, target.data.kind) : { ok: false };
+      if (!check.ok) {
+        set({ notice: check.reason ?? 'Those components can’t be connected.', connectSource: undefined });
+        return;
+      }
       const edge = edgeToFlow({ id: crypto.randomUUID(), source: connectSource, target: id, kind: 'sync' });
       set({ edges: addEdge(edge, get().edges), connectSource: undefined });
     },
+
+    clearNotice: () => set({ notice: undefined }),
 
     setDocName: (name) => set({ docName: name }),
 

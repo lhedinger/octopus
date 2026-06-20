@@ -7,22 +7,28 @@ export interface ComponentNodeData extends Record<string, unknown> {
   label: string;
   description?: string;
   meta?: Record<string, unknown>;
+  /** True when this node is a storage attached to a host microservice. */
+  attached?: boolean;
 }
 
 export type FlowNode = Node<ComponentNodeData, 'component'>;
 export type FlowEdge = Edge;
 
 export function nodeToFlow(node: ArchNode): FlowNode {
+  const attached = Boolean(node.parentId);
   return {
     id: node.id,
     type: 'component',
     position: node.position,
     parentId: node.parentId,
+    // Attachments are owned by their host: they move with it, not on their own.
+    draggable: attached ? false : undefined,
     data: {
       kind: node.kind,
       label: node.label,
       description: node.description,
       meta: node.meta,
+      attached,
     },
   };
 }
@@ -40,8 +46,10 @@ export function edgeToFlow(edge: ArchEdge): FlowEdge {
 }
 
 export function toReactFlow(doc: ArchDocument): { nodes: FlowNode[]; edges: FlowEdge[] } {
+  // React Flow requires a parent node to appear before its children.
+  const ordered = [...doc.nodes].sort((a, b) => (a.parentId ? 1 : 0) - (b.parentId ? 1 : 0));
   return {
-    nodes: doc.nodes.map(nodeToFlow),
+    nodes: ordered.map(nodeToFlow),
     edges: doc.edges.map(edgeToFlow),
   };
 }

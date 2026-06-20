@@ -1,4 +1,5 @@
 import type { ComponentKind } from './types';
+import { isStorage } from './relationships';
 
 export interface PaletteEntry {
   kind: ComponentKind;
@@ -9,11 +10,8 @@ export interface PaletteEntry {
   hue: number;
 }
 
-/**
- * The generic, technology-agnostic component vocabulary. Order here is the
- * order shown in the palette.
- */
-export const PALETTE: PaletteEntry[] = [
+/** Visual + label definitions for every component kind. */
+const KIND_INFO: PaletteEntry[] = [
   { kind: 'service', label: 'Service', hint: 'A running application', hue: 210 },
   { kind: 'microservice', label: 'Microservice', hint: 'Small focused service', hue: 265 },
   { kind: 'database', label: 'Database', hint: 'Relational / document store', hue: 150 },
@@ -26,8 +24,18 @@ export const PALETTE: PaletteEntry[] = [
 ];
 
 const PALETTE_BY_KIND: Record<ComponentKind, PaletteEntry> = Object.fromEntries(
-  PALETTE.map((entry) => [entry.kind, entry]),
+  KIND_INFO.map((entry) => [entry.kind, entry]),
 ) as Record<ComponentKind, PaletteEntry>;
+
+/**
+ * Kinds offered in the dock. Storage kinds are excluded — they're added from a
+ * host microservice (they can't exist on their own), so they never stand alone
+ * in the palette.
+ */
+export const PALETTE: PaletteEntry[] = KIND_INFO.filter((entry) => !isStorage(entry.kind));
+
+/** Storage kinds, for the host's "add storage" control. */
+export const STORAGE_PALETTE: PaletteEntry[] = KIND_INFO.filter((entry) => isStorage(entry.kind));
 
 export function paletteEntry(kind: ComponentKind): PaletteEntry {
   return PALETTE_BY_KIND[kind];
