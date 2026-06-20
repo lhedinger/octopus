@@ -9,11 +9,12 @@ describe('useArchStore', () => {
     store().setTapConnect(false);
   });
 
-  it('adds nodes from the palette', () => {
+  it('adds nodes from the palette without selecting them', () => {
     store().addNode('service', { x: 10, y: 20 });
     expect(store().nodes).toHaveLength(1);
     expect(store().nodes[0].data.kind).toBe('service');
-    expect(store().selectedNodeId).toBe(store().nodes[0].id);
+    // Placement is silent — no selection, so no context menu opens.
+    expect(store().selectedNodeId).toBeUndefined();
   });
 
   it('updates node data', () => {

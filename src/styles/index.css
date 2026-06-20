@@ -25,3 +25,8 @@ select,
 [class*='overflow-'] {
   touch-action: auto;
 }
+
+/* Selection visuals are driven by our own store; suppress the library default. */
+.react-flow__node.selected {
+  box-shadow: none;
+}

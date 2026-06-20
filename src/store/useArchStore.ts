@@ -42,6 +42,7 @@ interface ArchState {
   addStorage: (hostId: string, kind: ComponentKind) => void;
   updateNodeData: (id: string, patch: Partial<ComponentNodeData>) => void;
   updateEdge: (id: string, patch: { label?: string; kind?: EdgeKind }) => void;
+  deleteNode: (id: string) => void;
   deleteSelected: () => void;
   select: (nodeId?: string, edgeId?: string) => void;
 
@@ -98,7 +99,8 @@ export const useArchStore = create<ArchState>((set, get) => {
         data: { kind, label: defaultLabel(kind) },
       };
       spawnIndex++;
-      set({ nodes: [...get().nodes, node], selectedNodeId: id, selectedEdgeId: undefined });
+      // Placement is silent — no selection, so no context menu pops up.
+      set({ nodes: [...get().nodes, node], selectedNodeId: undefined, selectedEdgeId: undefined });
     },
 
     addStorage: (hostId, kind) => {
@@ -142,17 +144,22 @@ export const useArchStore = create<ArchState>((set, get) => {
         ),
       }),
 
+    deleteNode: (id) => {
+      const { nodes, edges } = get();
+      // Deleting a host also removes its attachments (they can't exist alone).
+      const removed = new Set<string>([id]);
+      for (const n of nodes) if (n.parentId && removed.has(n.parentId)) removed.add(n.id);
+      set({
+        nodes: nodes.filter((n) => !removed.has(n.id)),
+        edges: edges.filter((e) => !removed.has(e.source) && !removed.has(e.target)),
+        selectedNodeId: undefined,
+      });
+    },
+
     deleteSelected: () => {
-      const { selectedNodeId, selectedEdgeId, nodes, edges } = get();
+      const { selectedNodeId, selectedEdgeId, edges } = get();
       if (selectedNodeId) {
-        // Deleting a host also removes its attachments (they can't exist alone).
-        const removed = new Set<string>([selectedNodeId]);
-        for (const n of nodes) if (n.parentId && removed.has(n.parentId)) removed.add(n.id);
-        set({
-          nodes: nodes.filter((n) => !removed.has(n.id)),
-          edges: edges.filter((e) => !removed.has(e.source) && !removed.has(e.target)),
-          selectedNodeId: undefined,
-        });
+        get().deleteNode(selectedNodeId);
       } else if (selectedEdgeId) {
         set({ edges: edges.filter((e) => e.id !== selectedEdgeId), selectedEdgeId: undefined });
       }
