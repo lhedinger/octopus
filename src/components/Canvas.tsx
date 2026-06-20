@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Background,
   BackgroundVariant,
@@ -37,6 +37,21 @@ function CanvasInner() {
   const onEdgeClick: EdgeMouseHandler = useCallback((_, edge) => select(undefined, edge.id), [select]);
   const onPaneClick = useCallback(() => select(undefined, undefined), [select]);
 
+  // The minimap is a peripheral: it fades in when the user starts moving the
+  // viewport and hides again on any tap outside it.
+  const [minimapShown, setMinimapShown] = useState(false);
+  const onMoveStart = useCallback(() => setMinimapShown(true), []);
+  useEffect(() => {
+    if (!minimapShown) return;
+    // A pan is a drag (no click), so a stray click here means a real tap
+    // elsewhere — anywhere but the minimap dismisses it.
+    const onClick = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest('.react-flow__minimap')) setMinimapShown(false);
+    };
+    document.addEventListener('click', onClick, true);
+    return () => document.removeEventListener('click', onClick, true);
+  }, [minimapShown]);
+
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
@@ -65,6 +80,7 @@ function CanvasInner() {
         onNodeClick={onNodeClick}
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
+        onMoveStart={onMoveStart}
         fitView
         fitViewOptions={{ maxZoom: 0.5 }}
         defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
@@ -82,7 +98,9 @@ function CanvasInner() {
           pannable
           zoomable
           style={{ width: 150, height: 96 }}
-          className="!hidden !rounded-lg !border !border-white/10 opacity-70 transition-opacity hover:opacity-100 sm:!block"
+          className={`!rounded-lg !border !border-white/10 transition-opacity duration-300 ${
+            minimapShown ? 'opacity-80' : 'pointer-events-none opacity-0'
+          }`}
           bgColor="#0f172a"
           maskColor="rgba(15,23,42,0.6)"
           nodeColor="#38bdf8"
