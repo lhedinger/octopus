@@ -61,12 +61,12 @@ describe('useArchStore', () => {
     expect(store().edges).toHaveLength(0);
   });
 
-  it('round-trips its state to an ArchDocument, snapping placement to the grid', () => {
-    store().addNode('service', { x: 50, y: 70 });
+  it('round-trips its state to an ArchDocument, snapping placement to a tile', () => {
+    store().addNode('service', { x: 70, y: 130 });
     const doc = store().toDocument();
     expect(doc.version).toBe(1);
     expect(doc.nodes).toHaveLength(1);
-    // 50 -> 48, 70 -> 72 on the 24px grid.
-    expect(doc.nodes[0].position).toEqual({ x: 48, y: 72 });
+    // 70 -> 120, 130 -> 120 on the 120px tile grid.
+    expect(doc.nodes[0].position).toEqual({ x: 120, y: 120 });
   });
 });

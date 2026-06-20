@@ -9,7 +9,7 @@ import {
 } from '@xyflow/react';
 import type { ArchDocument, ComponentKind, EdgeKind } from '../model/types';
 import { defaultLabel } from '../model/palette';
-import { GRID_SIZE, snapPoint } from '../model/grid';
+import { TILE_SIZE, snapPoint } from '../model/grid';
 import {
   edgeToFlow,
   fromReactFlow,
@@ -160,8 +160,8 @@ export const useArchStore = create<ArchState>((set, get) => {
   };
 });
 
-/** Default spawn position for tap-to-place, fanned out on grid lines so nodes don't stack. */
+/** Default spawn position for tap-to-place: successive tiles so nodes don't stack. */
 export function nextSpawnPosition(): { x: number; y: number } {
   const i = spawnIndex;
-  return { x: GRID_SIZE * 4 + (i % 4) * GRID_SIZE * 7, y: GRID_SIZE * 4 + Math.floor(i / 4) * GRID_SIZE * 7 };
+  return { x: (1 + (i % 4)) * TILE_SIZE, y: (1 + Math.floor(i / 4)) * TILE_SIZE };
 }
