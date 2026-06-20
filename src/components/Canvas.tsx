@@ -13,6 +13,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { useArchStore } from '../store/useArchStore';
 import type { ComponentKind } from '../model/types';
+import { GRID_SIZE } from '../model/grid';
 import type { FlowNode } from '../model/mapping';
 import { ComponentNode } from './nodes/ComponentNode';
 
@@ -70,8 +71,11 @@ function CanvasInner() {
         zoomOnPinch
         panOnScroll
         selectionOnDrag
+        snapToGrid
+        snapGrid={[GRID_SIZE, GRID_SIZE]}
       >
-        <Background variant={BackgroundVariant.Dots} gap={24} size={1.5} color="#334155" />
+        <Background variant={BackgroundVariant.Lines} gap={GRID_SIZE} lineWidth={1} color="#1e293b" />
+        <Background variant={BackgroundVariant.Lines} gap={GRID_SIZE * 5} lineWidth={1} color="#293548" />
         <Controls className="!bg-panelLight !text-slate-200" />
         <MiniMap
           pannable
