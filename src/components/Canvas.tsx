@@ -19,6 +19,7 @@ import { ComponentNode } from './nodes/ComponentNode';
 const nodeTypes = { component: ComponentNode };
 
 const MAX_ZOOM = 6;
+const MIN_ZOOM = 0.2;
 // Enter a component once it fills this fraction of the smaller screen dimension.
 const ENTER_FILL = 0.7;
 const ENTER_ZOOM_MIN = 2.5;
@@ -27,9 +28,24 @@ const FADE_START = 0.4;
 // Zoom out below this inside a nested level to climb back up.
 const EXIT_ZOOM = 0.24;
 
+// One-thumb double-tap-and-drag zoom (Google-Maps style).
+const DOUBLE_TAP_MS = 320;
+const TAP_MAX_MS = 250;
+const TAP_MAX_MOVE = 12;
+const DOUBLE_TAP_DIST = 28;
+const ZOOM_PER_PX = 1 / 220; // px of drag per doubling/halving of zoom
+
+interface TapInfo {
+  t: number;
+  x: number;
+  y: number;
+  /** Selected node id *before* this tap, so we can honour "ignore unselected". */
+  sel0?: string;
+}
+
 export function Canvas() {
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const { getNodes, fitView, setViewport } = useReactFlow();
+  const { getNodes, fitView, setViewport, getViewport } = useReactFlow();
 
   const rawNodes = useArchStore((s) => s.nodes);
   const selectedNodeId = useArchStore((s) => s.selectedNodeId);
@@ -58,32 +74,28 @@ export function Canvas() {
   const onEdgeClick: EdgeMouseHandler = useCallback((_, edge) => select(undefined, edge.id), [select]);
   const onPaneClick = useCallback(() => select(undefined, undefined), [select]);
 
-  // The minimap is a peripheral: it fades in while moving and hides on any tap outside it.
   const [minimapShown, setMinimapShown] = useState(false);
-
   // Guards re-triggering navigation during the post-navigation refit.
   const navigating = useRef(false);
 
-  // Semantic zoom: zoom into a component to drill in, zoom out to climb up.
-  const onMove = useCallback(
-    (_: unknown, viewport: Viewport) => {
-      setMinimapShown(true);
-      if (navigating.current) return;
+  // Drill-down + fade for a given viewport. Returns true if it navigated.
+  const navFor = useCallback(
+    (vp: Viewport): boolean => {
+      if (navigating.current) return false;
       const el = wrapperRef.current;
-      if (!el) return;
+      if (!el) return false;
       const { clientWidth: W, clientHeight: H } = el;
-      const z = viewport.zoom;
+      const z = vp.zoom;
       const { path, enter, exitTo } = useArchStore.getState();
 
       if (path.length > 0 && z <= EXIT_ZOOM) {
         navigating.current = true;
         exitTo(path.length - 1);
-        return;
+        return true;
       }
 
-      // Which top-level component (if any) is under the screen centre.
-      const cx = (W / 2 - viewport.x) / z;
-      const cy = (H / 2 - viewport.y) / z;
+      const cx = (W / 2 - vp.x) / z;
+      const cy = (H / 2 - vp.y) / z;
       const target = getNodes().find(
         (n) =>
           !n.parentId &&
@@ -98,18 +110,93 @@ export function Canvas() {
       if (target && z >= ENTER_ZOOM_MIN && fill >= ENTER_FILL) {
         navigating.current = true;
         enter(target.id);
-        return;
+        return true;
       }
 
-      // Fade the current layer out as that component approaches filling the screen.
       const p = fill <= FADE_START ? 0 : Math.min(1, (fill - FADE_START) / (ENTER_FILL - FADE_START));
       el.style.setProperty('--layer-opacity', String(1 - p));
+      return false;
     },
     [getNodes],
   );
 
-  // After any navigation, frame the new level (or center an empty one on the
-  // area where tap-placed components first appear) and fade the new layer in.
+  // Pinch / scroll zoom flows through React Flow's onMove.
+  const onMove = useCallback(
+    (_: unknown, viewport: Viewport) => {
+      setMinimapShown(true);
+      navFor(viewport);
+    },
+    [navFor],
+  );
+
+  // --- One-thumb double-tap-and-drag zoom ---
+  const down = useRef<TapInfo | null>(null);
+  const lastTap = useRef<TapInfo | null>(null);
+  const zoom = useRef<null | { startClientY: number; startZoom: number; fx: number; fy: number; flowX: number; flowY: number }>(null);
+
+  const endZoom = () => {
+    window.removeEventListener('pointermove', onZoomMove);
+    window.removeEventListener('pointerup', onZoomEnd);
+    window.removeEventListener('pointercancel', onZoomEnd);
+    zoom.current = null;
+  };
+
+  const onZoomMove = (e: PointerEvent) => {
+    const g = zoom.current;
+    if (!g) return;
+    const dy = g.startClientY - e.clientY; // up => zoom in
+    const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, g.startZoom * Math.pow(2, dy * ZOOM_PER_PX)));
+    const vp = { x: g.fx - g.flowX * newZoom, y: g.fy - g.flowY * newZoom, zoom: newZoom };
+    setViewport(vp);
+    setMinimapShown(true);
+    if (navFor(vp)) endZoom(); // a level change ends the gesture
+  };
+
+  const onZoomEnd = () => endZoom();
+
+  const onPointerDownCapture = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const now = performance.now();
+    const prev = lastTap.current;
+    const isDouble = !!prev && now - prev.t < DOUBLE_TAP_MS && Math.hypot(e.clientX - prev.x, e.clientY - prev.y) < DOUBLE_TAP_DIST;
+
+    if (isDouble) {
+      const nodeEl = (e.target as HTMLElement).closest('.react-flow__node') as HTMLElement | null;
+      const nodeId = nodeEl?.getAttribute('data-id') ?? undefined;
+      // Ignore when the gesture begins on a component that wasn't selected before it started.
+      if (nodeEl && nodeId !== prev!.sel0) {
+        lastTap.current = null;
+        down.current = null;
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      const vp = getViewport();
+      const rect = wrapperRef.current!.getBoundingClientRect();
+      const fx = e.clientX - rect.left;
+      const fy = e.clientY - rect.top;
+      zoom.current = { startClientY: e.clientY, startZoom: vp.zoom, fx, fy, flowX: (fx - vp.x) / vp.zoom, flowY: (fy - vp.y) / vp.zoom };
+      lastTap.current = null;
+      down.current = null;
+      window.addEventListener('pointermove', onZoomMove);
+      window.addEventListener('pointerup', onZoomEnd);
+      window.addEventListener('pointercancel', onZoomEnd);
+      return;
+    }
+
+    // First tap — remember it (with the pre-tap selection) for double-tap detection.
+    down.current = { t: now, x: e.clientX, y: e.clientY, sel0: useArchStore.getState().selectedNodeId };
+  };
+
+  const onPointerUp = (e: React.PointerEvent) => {
+    const d = down.current;
+    down.current = null;
+    if (!d) return;
+    const quick = performance.now() - d.t < TAP_MAX_MS && Math.hypot(e.clientX - d.x, e.clientY - d.y) < TAP_MAX_MOVE;
+    lastTap.current = quick ? { t: performance.now(), x: e.clientX, y: e.clientY, sel0: d.sel0 } : null;
+  };
+
+  // After any navigation, frame the new level (or center an empty one) and fade the new layer in.
   useEffect(() => {
     wrapperRef.current?.style.setProperty('--layer-opacity', '1');
     if (getNodes().length > 0) {
@@ -136,7 +223,7 @@ export function Canvas() {
   }, [minimapShown]);
 
   return (
-    <div ref={wrapperRef} className="h-full w-full">
+    <div ref={wrapperRef} className="h-full w-full" onPointerDownCapture={onPointerDownCapture} onPointerUp={onPointerUp}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -152,11 +239,12 @@ export function Canvas() {
         fitView
         fitViewOptions={{ maxZoom: 0.5 }}
         defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
-        minZoom={0.2}
+        minZoom={MIN_ZOOM}
         maxZoom={MAX_ZOOM}
         proOptions={{ hideAttribution: true }}
         zoomOnPinch
         zoomOnScroll
+        zoomOnDoubleClick={false}
         snapToGrid
         snapGrid={[TILE_SIZE, TILE_SIZE]}
       >
