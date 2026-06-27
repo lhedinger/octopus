@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Background,
   BackgroundVariant,
@@ -31,7 +31,14 @@ export function Canvas() {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const { getNodes, fitView, setViewport } = useReactFlow();
 
-  const nodes = useArchStore((s) => s.nodes);
+  const rawNodes = useArchStore((s) => s.nodes);
+  const selectedNodeId = useArchStore((s) => s.selectedNodeId);
+  // Only the selected component can be dragged — so an unselected one can't be
+  // moved by accident; a first tap selects it, then it becomes draggable.
+  const nodes = useMemo(
+    () => rawNodes.map((n) => (n.draggable === false ? n : { ...n, draggable: n.id === selectedNodeId })),
+    [rawNodes, selectedNodeId],
+  );
   const edges = useArchStore((s) => s.edges);
   const onNodesChange = useArchStore((s) => s.onNodesChange);
   const onEdgesChange = useArchStore((s) => s.onEdgesChange);
