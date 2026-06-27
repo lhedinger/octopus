@@ -1,5 +1,5 @@
 import type { Edge, Node } from '@xyflow/react';
-import type { ArchDocument, ArchEdge, ArchNode, ComponentKind, EdgeKind } from './types';
+import type { ArchDocument, ArchEdge, ArchNode, ComponentKind, EdgeKind, Level } from './types';
 
 /** Data carried on a React Flow node for our custom renderer. */
 export interface ComponentNodeData extends Record<string, unknown> {
@@ -89,4 +89,15 @@ export function fromReactFlow(
     edges: edges.map(flowToEdge),
     updatedAt: new Date().toISOString(),
   };
+}
+
+/** Convert one drill-down level (domain) to React Flow nodes/edges. */
+export function levelToFlow(level: Level): { nodes: FlowNode[]; edges: FlowEdge[] } {
+  const ordered = [...level.nodes].sort((a, b) => (a.parentId ? 1 : 0) - (b.parentId ? 1 : 0));
+  return { nodes: ordered.map(nodeToFlow), edges: level.edges.map(edgeToFlow) };
+}
+
+/** Snapshot the active React Flow nodes/edges back to a domain level. */
+export function flowToLevel(nodes: FlowNode[], edges: FlowEdge[]): Level {
+  return { nodes: nodes.map(flowToNode), edges: edges.map(flowToEdge) };
 }

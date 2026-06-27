@@ -54,3 +54,27 @@ export function createEmptyDocument(name = 'Untitled architecture'): ArchDocumen
     updatedAt: new Date().toISOString(),
   };
 }
+
+/** One canvas in the project tree (a single drill-down level). */
+export interface Level {
+  nodes: ArchNode[];
+  edges: ArchEdge[];
+}
+
+/**
+ * The whole project: a tree of canvases. `levels` is keyed by the path of
+ * component ids you entered to reach it ('' is the root); drilling into a
+ * component opens the level keyed by that path.
+ */
+export interface ProjectDocument {
+  version: 2;
+  id: string;
+  name: string;
+  levels: Record<string, Level>;
+}
+
+export const ROOT_PATH = '';
+
+export function createEmptyProject(name = 'Untitled architecture'): ProjectDocument {
+  return { version: 2, id: crypto.randomUUID(), name, levels: { [ROOT_PATH]: { nodes: [], edges: [] } } };
+}

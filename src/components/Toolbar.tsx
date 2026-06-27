@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useArchStore } from '../store/useArchStore';
-import { exportToFile, parseImportedDocument } from '../store/persistence';
+import { exportToFile, parseImportedProject } from '../store/persistence';
 
 export function Toolbar() {
   const fileInput = useRef<HTMLInputElement>(null);
@@ -9,15 +9,15 @@ export function Toolbar() {
   const setDocName = useArchStore((s) => s.setDocName);
   const tapConnect = useArchStore((s) => s.tapConnect);
   const setTapConnect = useArchStore((s) => s.setTapConnect);
-  const newDocument = useArchStore((s) => s.newDocument);
-  const loadFromDocument = useArchStore((s) => s.loadFromDocument);
-  const toDocument = useArchStore((s) => s.toDocument);
+  const newProject = useArchStore((s) => s.newProject);
+  const loadFromProject = useArchStore((s) => s.loadFromProject);
+  const toProject = useArchStore((s) => s.toProject);
 
   const onImport = async (file: File) => {
     try {
-      loadFromDocument(parseImportedDocument(await file.text()));
+      loadFromProject(parseImportedProject(await file.text()));
     } catch {
-      alert('Could not import: not a valid Octopus document.');
+      alert('Could not import: not a valid Octopus project.');
     }
   };
 
@@ -62,9 +62,9 @@ export function Toolbar() {
           <button aria-hidden tabIndex={-1} className="fixed inset-0 z-20 cursor-default" onClick={() => setMenuOpen(false)} />
           <div className="absolute left-3 top-14 z-30 w-44 overflow-hidden rounded-xl border border-white/10 bg-panel/95 py-1 text-sm shadow-xl backdrop-blur">
             {[
-              { label: 'New architecture', fn: () => confirm('Start a new, empty architecture?') && newDocument() },
+              { label: 'New architecture', fn: () => confirm('Start a new, empty architecture?') && newProject() },
               { label: 'Import…', fn: () => fileInput.current?.click() },
-              { label: 'Export', fn: () => exportToFile(toDocument()) },
+              { label: 'Export', fn: () => exportToFile(toProject()) },
             ].map((item) => (
               <button
                 key={item.label}

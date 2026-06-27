@@ -1,23 +1,45 @@
-import type { ArchDocument } from '../model/types';
-import { createEmptyDocument } from '../model/types';
+import type { ArchDocument, ProjectDocument } from '../model/types';
+import { createEmptyProject, ROOT_PATH } from '../model/types';
 
-const STORAGE_KEY = 'octopus.document.v1';
+const PROJECT_KEY = 'octopus.project.v2';
+const LEGACY_KEY = 'octopus.document.v1';
 
-export function loadDocument(): ArchDocument {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return createEmptyDocument();
-    const parsed = JSON.parse(raw) as ArchDocument;
-    if (parsed && parsed.version === 1 && Array.isArray(parsed.nodes)) return parsed;
-  } catch {
-    // fall through to a fresh document
-  }
-  return createEmptyDocument();
+function migrateLegacy(doc: ArchDocument): ProjectDocument {
+  return {
+    version: 2,
+    id: doc.id ?? crypto.randomUUID(),
+    name: doc.name ?? 'Untitled architecture',
+    levels: { [ROOT_PATH]: { nodes: doc.nodes ?? [], edges: doc.edges ?? [] } },
+  };
 }
 
-export function saveDocument(doc: ArchDocument): void {
+export function isProject(value: unknown): value is ProjectDocument {
+  const p = value as ProjectDocument | null;
+  return !!p && p.version === 2 && typeof p.levels === 'object' && !!p.levels;
+}
+
+export function loadProject(): ProjectDocument {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(doc));
+    const raw = localStorage.getItem(PROJECT_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (isProject(parsed)) return parsed;
+    }
+    // One-time migration from the old single-canvas format.
+    const legacy = localStorage.getItem(LEGACY_KEY);
+    if (legacy) {
+      const doc = JSON.parse(legacy) as ArchDocument;
+      if (doc && doc.version === 1 && Array.isArray(doc.nodes)) return migrateLegacy(doc);
+    }
+  } catch {
+    // fall through to a fresh project
+  }
+  return createEmptyProject();
+}
+
+export function saveProject(project: ProjectDocument): void {
+  try {
+    localStorage.setItem(PROJECT_KEY, JSON.stringify(project));
   } catch {
     // storage full or unavailable — non-fatal
   }
@@ -32,20 +54,20 @@ export function debounce<A extends unknown[]>(fn: (...args: A) => void, ms: numb
   };
 }
 
-export function exportToFile(doc: ArchDocument): void {
-  const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' });
+export function exportToFile(project: ProjectDocument): void {
+  const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${doc.name.replace(/\s+/g, '-').toLowerCase() || 'architecture'}.octopus.json`;
+  a.download = `${project.name.replace(/\s+/g, '-').toLowerCase() || 'architecture'}.octopus.json`;
   a.click();
   URL.revokeObjectURL(url);
 }
 
-export function parseImportedDocument(text: string): ArchDocument {
-  const parsed = JSON.parse(text) as ArchDocument;
-  if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.nodes) || !Array.isArray(parsed.edges)) {
-    throw new Error('Not a valid Octopus document');
-  }
-  return parsed;
+export function parseImportedProject(text: string): ProjectDocument {
+  const parsed = JSON.parse(text);
+  if (isProject(parsed)) return parsed;
+  // Accept a legacy single-canvas export too.
+  if (parsed && parsed.version === 1 && Array.isArray(parsed.nodes)) return migrateLegacy(parsed as ArchDocument);
+  throw new Error('Not a valid Octopus project');
 }

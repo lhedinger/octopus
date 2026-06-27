@@ -7,23 +7,31 @@ import {
   type EdgeChange,
   type NodeChange,
 } from '@xyflow/react';
-import type { ArchDocument, ComponentKind, EdgeKind } from '../model/types';
+import type { ComponentKind, EdgeKind, Level, ProjectDocument } from '../model/types';
+import { ROOT_PATH } from '../model/types';
 import { defaultLabel } from '../model/palette';
 import { canConnect } from '../model/relationships';
 import { TILE_SIZE, snapPoint } from '../model/grid';
 import {
   edgeToFlow,
-  fromReactFlow,
-  toReactFlow,
+  flowToLevel,
+  levelToFlow,
   type ComponentNodeData,
   type FlowEdge,
   type FlowNode,
 } from '../model/mapping';
-import { loadDocument } from './persistence';
+import { loadProject } from './persistence';
 
 interface ArchState {
   docId: string;
   docName: string;
+  /** Every drill-down canvas, keyed by the path of entered component ids. */
+  levels: Record<string, Level>;
+  /** Components entered to reach the active level; [] is the root. */
+  path: string[];
+  /** Bumped on any navigation so the canvas can refit the viewport. */
+  navVersion: number;
+
   nodes: FlowNode[];
   edges: FlowEdge[];
   selectedNodeId?: string;
@@ -50,23 +58,39 @@ interface ArchState {
   tapNode: (id: string) => void;
   clearNotice: () => void;
 
+  /** Drill into a component, opening (or creating) its inner canvas. */
+  enter: (nodeId: string) => void;
+  /** Climb back to the level `depth` components deep (0 = root). */
+  exitTo: (depth: number) => void;
+
   setDocName: (name: string) => void;
-  newDocument: () => void;
-  loadFromDocument: (doc: ArchDocument) => void;
-  toDocument: () => ArchDocument;
+  newProject: () => void;
+  loadFromProject: (project: ProjectDocument) => void;
+  toProject: () => ProjectDocument;
 }
 
 let spawnIndex = 0;
+const keyOf = (path: string[]) => path.join('/');
 
 export const useArchStore = create<ArchState>((set, get) => {
-  const initial = loadDocument();
-  const { nodes, edges } = toReactFlow(initial);
+  const project = loadProject();
+  const rootLevel = project.levels[ROOT_PATH] ?? { nodes: [], edges: [] };
+  const root = levelToFlow(rootLevel);
+
+  /** Snapshot the active level back into the levels map. */
+  const flushed = (): Record<string, Level> => {
+    const { levels, path, nodes, edges } = get();
+    return { ...levels, [keyOf(path)]: flowToLevel(nodes, edges) };
+  };
 
   return {
-    docId: initial.id,
-    docName: initial.name,
-    nodes,
-    edges,
+    docId: project.id,
+    docName: project.name,
+    levels: project.levels,
+    path: [],
+    navVersion: 0,
+    nodes: root.nodes,
+    edges: root.edges,
     tapConnect: false,
 
     onNodesChange: (changes) => set({ nodes: applyNodeChanges(changes, get().nodes) }),
@@ -81,12 +105,7 @@ export const useArchStore = create<ArchState>((set, get) => {
         set({ notice: check.reason });
         return;
       }
-      const edge = edgeToFlow({
-        id: crypto.randomUUID(),
-        source: connection.source!,
-        target: connection.target!,
-        kind: 'sync',
-      });
+      const edge = edgeToFlow({ id: crypto.randomUUID(), source: connection.source!, target: connection.target!, kind: 'sync' });
       set({ edges: addEdge(edge, get().edges) });
     },
 
@@ -107,7 +126,6 @@ export const useArchStore = create<ArchState>((set, get) => {
       const { nodes } = get();
       const host = nodes.find((n) => n.id === hostId);
       if (!host || host.data.kind !== 'microservice') return;
-      // Slot the new storage below the host: half-tile cells, two per row.
       const slot = nodes.filter((n) => n.parentId === hostId).length;
       const size = TILE_SIZE / 2;
       const gap = 8;
@@ -115,20 +133,16 @@ export const useArchStore = create<ArchState>((set, get) => {
       const node: FlowNode = {
         id,
         type: 'component',
-        // Position is relative to the host (a React Flow parent).
         position: { x: (slot % 2) * (size + gap), y: TILE_SIZE + gap + Math.floor(slot / 2) * (size + gap) },
         parentId: hostId,
         draggable: false,
         data: { kind, label: defaultLabel(kind), attached: true },
       };
-      // Keep the host selected so more storages can be added in a row.
       set({ nodes: [...nodes, node], selectedNodeId: hostId, selectedEdgeId: undefined });
     },
 
     updateNodeData: (id, patch) =>
-      set({
-        nodes: get().nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)),
-      }),
+      set({ nodes: get().nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)) }),
 
     updateEdge: (id, patch) =>
       set({
@@ -146,7 +160,6 @@ export const useArchStore = create<ArchState>((set, get) => {
 
     deleteNode: (id) => {
       const { nodes, edges } = get();
-      // Deleting a host also removes its attachments (they can't exist alone).
       const removed = new Set<string>([id]);
       for (const n of nodes) if (n.parentId && removed.has(n.parentId)) removed.add(n.id);
       set({
@@ -158,11 +171,8 @@ export const useArchStore = create<ArchState>((set, get) => {
 
     deleteSelected: () => {
       const { selectedNodeId, selectedEdgeId, edges } = get();
-      if (selectedNodeId) {
-        get().deleteNode(selectedNodeId);
-      } else if (selectedEdgeId) {
-        set({ edges: edges.filter((e) => e.id !== selectedEdgeId), selectedEdgeId: undefined });
-      }
+      if (selectedNodeId) get().deleteNode(selectedNodeId);
+      else if (selectedEdgeId) set({ edges: edges.filter((e) => e.id !== selectedEdgeId), selectedEdgeId: undefined });
     },
 
     select: (nodeId, edgeId) => set({ selectedNodeId: nodeId, selectedEdgeId: edgeId }),
@@ -197,22 +207,83 @@ export const useArchStore = create<ArchState>((set, get) => {
 
     clearNotice: () => set({ notice: undefined }),
 
+    enter: (nodeId) => {
+      const { path } = get();
+      const levels = flushed();
+      const newPath = [...path, nodeId];
+      const key = keyOf(newPath);
+      if (!levels[key]) levels[key] = { nodes: [], edges: [] };
+      const flow = levelToFlow(levels[key]);
+      spawnIndex = 0;
+      set({
+        levels,
+        path: newPath,
+        nodes: flow.nodes,
+        edges: flow.edges,
+        selectedNodeId: undefined,
+        selectedEdgeId: undefined,
+        connectSource: undefined,
+        navVersion: get().navVersion + 1,
+      });
+    },
+
+    exitTo: (depth) => {
+      const { path } = get();
+      if (depth >= path.length) return;
+      const levels = flushed();
+      const newPath = path.slice(0, depth);
+      const level = levels[keyOf(newPath)] ?? { nodes: [], edges: [] };
+      const flow = levelToFlow(level);
+      spawnIndex = 0;
+      set({
+        levels,
+        path: newPath,
+        nodes: flow.nodes,
+        edges: flow.edges,
+        selectedNodeId: undefined,
+        selectedEdgeId: undefined,
+        connectSource: undefined,
+        navVersion: get().navVersion + 1,
+      });
+    },
+
     setDocName: (name) => set({ docName: name }),
 
-    newDocument: () => {
+    newProject: () => {
       spawnIndex = 0;
-      set({ docId: crypto.randomUUID(), docName: 'Untitled architecture', nodes: [], edges: [], selectedNodeId: undefined, selectedEdgeId: undefined, connectSource: undefined });
+      set({
+        docId: crypto.randomUUID(),
+        docName: 'Untitled architecture',
+        levels: { [ROOT_PATH]: { nodes: [], edges: [] } },
+        path: [],
+        nodes: [],
+        edges: [],
+        selectedNodeId: undefined,
+        selectedEdgeId: undefined,
+        connectSource: undefined,
+        navVersion: get().navVersion + 1,
+      });
     },
 
-    loadFromDocument: (doc) => {
-      const flow = toReactFlow(doc);
-      set({ docId: doc.id, docName: doc.name, nodes: flow.nodes, edges: flow.edges, selectedNodeId: undefined, selectedEdgeId: undefined, connectSource: undefined });
+    loadFromProject: (project) => {
+      spawnIndex = 0;
+      const rootLevel = project.levels[ROOT_PATH] ?? { nodes: [], edges: [] };
+      const flow = levelToFlow(rootLevel);
+      set({
+        docId: project.id,
+        docName: project.name,
+        levels: project.levels,
+        path: [],
+        nodes: flow.nodes,
+        edges: flow.edges,
+        selectedNodeId: undefined,
+        selectedEdgeId: undefined,
+        connectSource: undefined,
+        navVersion: get().navVersion + 1,
+      });
     },
 
-    toDocument: () => {
-      const { docId, docName, nodes, edges } = get();
-      return fromReactFlow({ id: docId, name: docName, version: 1 }, nodes, edges);
-    },
+    toProject: () => ({ version: 2, id: get().docId, name: get().docName, levels: flushed() }),
   };
 });
 

@@ -4,10 +4,11 @@ import { Toolbar } from './components/Toolbar';
 import { Palette } from './components/Palette';
 import { Canvas } from './components/Canvas';
 import { Inspector } from './components/Inspector';
+import { Breadcrumb } from './components/Breadcrumb';
 import { useArchStore } from './store/useArchStore';
-import { debounce, saveDocument } from './store/persistence';
+import { debounce, saveProject } from './store/persistence';
 
-const autosave = debounce(() => saveDocument(useArchStore.getState().toDocument()), 400);
+const autosave = debounce(() => saveProject(useArchStore.getState().toProject()), 400);
 
 function isEditingText(): boolean {
   const el = document.activeElement;
@@ -18,6 +19,7 @@ function isEditingText(): boolean {
 
 export default function App() {
   const isEmpty = useArchStore((s) => s.nodes.length === 0);
+  const nested = useArchStore((s) => s.path.length > 0);
   const notice = useArchStore((s) => s.notice);
   const clearNotice = useArchStore((s) => s.clearNotice);
 
@@ -55,7 +57,9 @@ export default function App() {
         {isEmpty && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4">
             <p className="rounded-xl bg-panel/50 px-4 py-2 text-center text-sm text-slate-400 backdrop-blur">
-              Tap or drag a component onto the canvas · drag to pan · pinch to zoom
+              {nested
+                ? 'Build this component’s internals · zoom out to go back up'
+                : 'Tap or drag a component onto the canvas · zoom into one to drill inside'}
             </p>
           </div>
         )}
@@ -69,6 +73,7 @@ export default function App() {
       )}
 
         <Toolbar />
+        <Breadcrumb />
         <Inspector />
         <Palette />
       </div>
