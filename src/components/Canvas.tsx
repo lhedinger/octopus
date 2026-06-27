@@ -22,6 +22,8 @@ const MAX_ZOOM = 6;
 // Enter a component once it fills this fraction of the smaller screen dimension.
 const ENTER_FILL = 0.7;
 const ENTER_ZOOM_MIN = 2.5;
+// Begin fading the current layer out once a centered component fills this much.
+const FADE_START = 0.4;
 // Zoom out below this inside a nested level to climb back up.
 const EXIT_ZOOM = 0.24;
 
@@ -71,30 +73,38 @@ export function Canvas() {
         exitTo(path.length - 1);
         return;
       }
-      if (z >= ENTER_ZOOM_MIN && TILE_SIZE * z >= ENTER_FILL * Math.min(W, H)) {
-        const cx = (W / 2 - viewport.x) / z;
-        const cy = (H / 2 - viewport.y) / z;
-        const target = getNodes().find(
-          (n) =>
-            !n.parentId &&
-            n.type === 'component' &&
-            cx >= n.position.x &&
-            cx <= n.position.x + TILE_SIZE &&
-            cy >= n.position.y &&
-            cy <= n.position.y + TILE_SIZE,
-        );
-        if (target) {
-          navigating.current = true;
-          enter(target.id);
-        }
+
+      // Which top-level component (if any) is under the screen centre.
+      const cx = (W / 2 - viewport.x) / z;
+      const cy = (H / 2 - viewport.y) / z;
+      const target = getNodes().find(
+        (n) =>
+          !n.parentId &&
+          n.type === 'component' &&
+          cx >= n.position.x &&
+          cx <= n.position.x + TILE_SIZE &&
+          cy >= n.position.y &&
+          cy <= n.position.y + TILE_SIZE,
+      );
+      const fill = target ? (TILE_SIZE * z) / Math.min(W, H) : 0;
+
+      if (target && z >= ENTER_ZOOM_MIN && fill >= ENTER_FILL) {
+        navigating.current = true;
+        enter(target.id);
+        return;
       }
+
+      // Fade the current layer out as that component approaches filling the screen.
+      const p = fill <= FADE_START ? 0 : Math.min(1, (fill - FADE_START) / (ENTER_FILL - FADE_START));
+      el.style.setProperty('--layer-opacity', String(1 - p));
     },
     [getNodes],
   );
 
   // After any navigation, frame the new level (or center an empty one on the
-  // area where tap-placed components first appear).
+  // area where tap-placed components first appear) and fade the new layer in.
   useEffect(() => {
+    wrapperRef.current?.style.setProperty('--layer-opacity', '1');
     if (getNodes().length > 0) {
       fitView({ maxZoom: 0.5, duration: 300 });
     } else {

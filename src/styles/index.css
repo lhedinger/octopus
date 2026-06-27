@@ -30,3 +30,13 @@ select,
 .react-flow__node.selected {
   box-shadow: none;
 }
+
+/*
+ * Layer cross-fade for drill-down: the canvas sets --layer-opacity as a
+ * component is zoomed toward filling the screen, fading the current level's
+ * components out (and the next level in on entry). The grid stays put.
+ */
+.react-flow__viewport {
+  opacity: var(--layer-opacity, 1);
+  transition: opacity 120ms ease-out;
+}
