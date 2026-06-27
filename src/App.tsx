@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { ReactFlowProvider } from '@xyflow/react';
 import { Toolbar } from './components/Toolbar';
 import { Palette } from './components/Palette';
 import { Canvas } from './components/Canvas';
@@ -41,20 +42,23 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // The canvas fills the whole screen; everything else floats over it.
+  // The canvas fills the whole screen; everything else floats over it. The
+  // provider is lifted here so the palette can map screen coords to the canvas
+  // for drag-and-drop.
   return (
-    <div className="relative h-[100dvh] w-screen overflow-hidden bg-panel text-slate-100">
-      <div className="absolute inset-0">
-        <Canvas />
-      </div>
-
-      {isEmpty && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4">
-          <p className="rounded-xl bg-panel/50 px-4 py-2 text-center text-sm text-slate-400 backdrop-blur">
-            Tap a component below to place it · drag to pan · scroll or pinch to zoom
-          </p>
+    <ReactFlowProvider>
+      <div className="relative h-[100dvh] w-screen overflow-hidden bg-panel text-slate-100">
+        <div className="absolute inset-0">
+          <Canvas />
         </div>
-      )}
+
+        {isEmpty && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4">
+            <p className="rounded-xl bg-panel/50 px-4 py-2 text-center text-sm text-slate-400 backdrop-blur">
+              Tap or drag a component onto the canvas · drag to pan · pinch to zoom
+            </p>
+          </div>
+        )}
 
       {notice && (
         <div className="pointer-events-none absolute left-1/2 top-3 z-30 -translate-x-1/2">
@@ -64,9 +68,10 @@ export default function App() {
         </div>
       )}
 
-      <Toolbar />
-      <Inspector />
-      <Palette />
-    </div>
+        <Toolbar />
+        <Inspector />
+        <Palette />
+      </div>
+    </ReactFlowProvider>
   );
 }

@@ -1,17 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Background,
   BackgroundVariant,
   MiniMap,
   ReactFlow,
-  ReactFlowProvider,
-  useReactFlow,
   type NodeMouseHandler,
   type EdgeMouseHandler,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { useArchStore } from '../store/useArchStore';
-import type { ComponentKind } from '../model/types';
 import { canConnect } from '../model/relationships';
 import { TILE_SIZE, SUB_GRID } from '../model/grid';
 import type { FlowNode } from '../model/mapping';
@@ -19,18 +16,12 @@ import { ComponentNode } from './nodes/ComponentNode';
 
 const nodeTypes = { component: ComponentNode };
 
-export const PALETTE_DRAG_TYPE = 'application/octopus-kind';
-
-function CanvasInner() {
-  const wrapper = useRef<HTMLDivElement>(null);
-  const { screenToFlowPosition } = useReactFlow();
-
+export function Canvas() {
   const nodes = useArchStore((s) => s.nodes);
   const edges = useArchStore((s) => s.edges);
   const onNodesChange = useArchStore((s) => s.onNodesChange);
   const onEdgesChange = useArchStore((s) => s.onEdgesChange);
   const onConnect = useArchStore((s) => s.onConnect);
-  const addNode = useArchStore((s) => s.addNode);
   const tapNode = useArchStore((s) => s.tapNode);
   const select = useArchStore((s) => s.select);
 
@@ -60,24 +51,8 @@ function CanvasInner() {
     return () => document.removeEventListener('click', onClick, true);
   }, [minimapShown]);
 
-  const onDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  }, []);
-
-  const onDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      const kind = e.dataTransfer.getData(PALETTE_DRAG_TYPE) as ComponentKind;
-      if (!kind) return;
-      const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
-      addNode(kind, position);
-    },
-    [addNode, screenToFlowPosition],
-  );
-
   return (
-    <div ref={wrapper} className="h-full w-full" onDrop={onDrop} onDragOver={onDragOver}>
+    <div className="h-full w-full">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -118,13 +93,5 @@ function CanvasInner() {
         />
       </ReactFlow>
     </div>
-  );
-}
-
-export function Canvas() {
-  return (
-    <ReactFlowProvider>
-      <CanvasInner />
-    </ReactFlowProvider>
   );
 }
