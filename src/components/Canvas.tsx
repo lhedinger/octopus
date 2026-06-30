@@ -5,6 +5,7 @@ import {
   MiniMap,
   ReactFlow,
   useReactFlow,
+  type CoordinateExtent,
   type NodeMouseHandler,
   type EdgeMouseHandler,
   type Viewport,
@@ -20,28 +21,21 @@ const nodeTypes = { component: ComponentNode };
 
 const MAX_ZOOM = 6;
 const MIN_ZOOM = 0.2;
-// Enter a component once it fills this fraction of the smaller screen dimension.
+// A component's interior is a finite, bounded world (compact — a few components).
+const WORLD = 600;
+const WORLD_MARGIN = 60;
+const NESTED_EXTENT: CoordinateExtent = [
+  [-WORLD_MARGIN, -WORLD_MARGIN],
+  [WORLD + WORLD_MARGIN, WORLD + WORLD_MARGIN],
+];
+// Crossing happens when the component (entering) or the interior world (exiting)
+// fills this fraction of the screen — matched so the apparent scale stays
+// continuous across the boundary (seamless zoom).
 const ENTER_FILL = 0.7;
+const CHILD_START_FILL = 0.75; // a touch inside, so a pan right after entering won't pop back out
+const EXIT_FILL = 0.65;
 const ENTER_ZOOM_MIN = 2.5;
-// Begin fading the current layer out once a centered component fills this much.
 const FADE_START = 0.4;
-// Zoom out below this inside a nested level to climb back up.
-const EXIT_ZOOM = 0.24;
-
-// One-thumb double-tap-and-drag zoom (Google-Maps style).
-const DOUBLE_TAP_MS = 320;
-const TAP_MAX_MS = 250;
-const TAP_MAX_MOVE = 12;
-const DOUBLE_TAP_DIST = 28;
-const ZOOM_PER_PX = 1 / 220; // px of drag per doubling/halving of zoom
-
-interface TapInfo {
-  t: number;
-  x: number;
-  y: number;
-  /** Selected node id *before* this tap, so we can honour "ignore unselected". */
-  sel0?: string;
-}
 
 export function Canvas() {
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -56,6 +50,7 @@ export function Canvas() {
     [rawNodes, selectedNodeId],
   );
   const edges = useArchStore((s) => s.edges);
+  const depth = useArchStore((s) => s.path.length);
   const onNodesChange = useArchStore((s) => s.onNodesChange);
   const onEdgesChange = useArchStore((s) => s.onEdgesChange);
   const onConnect = useArchStore((s) => s.onConnect);
@@ -75,7 +70,6 @@ export function Canvas() {
   const onPaneClick = useCallback(() => select(undefined, undefined), [select]);
 
   const [minimapShown, setMinimapShown] = useState(false);
-  // Guards re-triggering navigation during the post-navigation refit.
   const navigating = useRef(false);
 
   // Drill-down + fade for a given viewport. Returns true if it navigated.
@@ -85,15 +79,18 @@ export function Canvas() {
       const el = wrapperRef.current;
       if (!el) return false;
       const { clientWidth: W, clientHeight: H } = el;
+      const minDim = Math.min(W, H);
       const z = vp.zoom;
       const { path, enter, exitTo } = useArchStore.getState();
 
-      if (path.length > 0 && z <= EXIT_ZOOM) {
+      // Exit: the bounded interior has shrunk to the boundary — pop up a level.
+      if (path.length > 0 && (WORLD * z) / minDim <= EXIT_FILL) {
         navigating.current = true;
         exitTo(path.length - 1);
         return true;
       }
 
+      // Which top-level component is under the screen centre, and how much it fills.
       const cx = (W / 2 - vp.x) / z;
       const cy = (H / 2 - vp.y) / z;
       const target = getNodes().find(
@@ -105,7 +102,7 @@ export function Canvas() {
           cy >= n.position.y &&
           cy <= n.position.y + TILE_SIZE,
       );
-      const fill = target ? (TILE_SIZE * z) / Math.min(W, H) : 0;
+      const fill = target ? (TILE_SIZE * z) / minDim : 0;
 
       if (target && z >= ENTER_ZOOM_MIN && fill >= ENTER_FILL) {
         navigating.current = true;
@@ -129,10 +126,16 @@ export function Canvas() {
     [navFor],
   );
 
-  // --- One-thumb double-tap-and-drag zoom ---
-  const down = useRef<TapInfo | null>(null);
-  const lastTap = useRef<TapInfo | null>(null);
+  // --- One-thumb double-tap-and-drag zoom (Google-Maps style) ---
+  const down = useRef<{ t: number; x: number; y: number; sel0?: string } | null>(null);
+  const lastTap = useRef<{ t: number; x: number; y: number; sel0?: string } | null>(null);
   const zoom = useRef<null | { startClientY: number; startZoom: number; fx: number; fy: number; flowX: number; flowY: number }>(null);
+
+  const DOUBLE_TAP_MS = 320;
+  const TAP_MAX_MS = 250;
+  const TAP_MAX_MOVE = 12;
+  const DOUBLE_TAP_DIST = 28;
+  const ZOOM_PER_PX = 1 / 220;
 
   const endZoom = () => {
     window.removeEventListener('pointermove', onZoomMove);
@@ -149,7 +152,7 @@ export function Canvas() {
     const vp = { x: g.fx - g.flowX * newZoom, y: g.fy - g.flowY * newZoom, zoom: newZoom };
     setViewport(vp);
     setMinimapShown(true);
-    if (navFor(vp)) endZoom(); // a level change ends the gesture
+    if (navFor(vp)) endZoom();
   };
 
   const onZoomEnd = () => endZoom();
@@ -163,7 +166,6 @@ export function Canvas() {
     if (isDouble) {
       const nodeEl = (e.target as HTMLElement).closest('.react-flow__node') as HTMLElement | null;
       const nodeId = nodeEl?.getAttribute('data-id') ?? undefined;
-      // Ignore when the gesture begins on a component that wasn't selected before it started.
       if (nodeEl && nodeId !== prev!.sel0) {
         lastTap.current = null;
         down.current = null;
@@ -184,7 +186,6 @@ export function Canvas() {
       return;
     }
 
-    // First tap — remember it (with the pre-tap selection) for double-tap detection.
     down.current = { t: now, x: e.clientX, y: e.clientY, sel0: useArchStore.getState().selectedNodeId };
   };
 
@@ -196,27 +197,38 @@ export function Canvas() {
     lastTap.current = quick ? { t: performance.now(), x: e.clientX, y: e.clientY, sel0: d.sel0 } : null;
   };
 
-  // After any navigation, frame the new level and fade the new layer in.
+  // After any navigation, place the camera so the crossing stays seamless.
   useEffect(() => {
     const el = wrapperRef.current;
     el?.style.setProperty('--layer-opacity', '1');
     const W = el?.clientWidth ?? 0;
-    const Hh = el?.clientHeight ?? 0;
-    const focusId = useArchStore.getState().focusNodeId;
-    const focus = focusId ? getNodes().find((n) => n.id === focusId) : undefined;
+    const H = el?.clientHeight ?? 0;
+    const minDim = Math.min(W, H);
+    const { focusNodeId, path } = useArchStore.getState();
 
-    if (focus) {
-      // Stepped out of a component: land centred on it at a comfortable size,
-      // so it reads as backing out of the box rather than jumping far away.
-      const z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, (0.4 * Math.min(W, Hh)) / TILE_SIZE));
-      const cx = focus.position.x + TILE_SIZE / 2;
-      const cy = focus.position.y + TILE_SIZE / 2;
-      setViewport({ x: W / 2 - cx * z, y: Hh / 2 - cy * z, zoom: z }, { duration: 300 });
+    if (focusNodeId) {
+      // Exited: land on the component we came out of, at the boundary scale, so
+      // it continues from the interior filling the screen.
+      const node = getNodes().find((n) => n.id === focusNodeId);
+      if (node) {
+        const z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, (EXIT_FILL * minDim) / TILE_SIZE));
+        const cx = node.position.x + TILE_SIZE / 2;
+        const cy = node.position.y + TILE_SIZE / 2;
+        setViewport({ x: W / 2 - cx * z, y: H / 2 - cy * z, zoom: z });
+      } else {
+        fitView({ maxZoom: 0.5, duration: 250 });
+      }
+    } else if (path.length > 0) {
+      // Entered: open the interior world at the matching scale, centred.
+      const z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, (CHILD_START_FILL * minDim) / WORLD));
+      const c = WORLD / 2;
+      setViewport({ x: W / 2 - c * z, y: H / 2 - c * z, zoom: z });
     } else if (getNodes().length > 0) {
       fitView({ maxZoom: 0.5, duration: 300 });
     } else {
-      setViewport({ x: W / 2 - TILE_SIZE, y: Hh / 2 - TILE_SIZE, zoom: 0.5 }, { duration: 300 });
+      setViewport({ x: W / 2 - TILE_SIZE, y: H / 2 - TILE_SIZE, zoom: 0.5 }, { duration: 300 });
     }
+
     const t = setTimeout(() => {
       navigating.current = false;
     }, 400);
@@ -246,6 +258,8 @@ export function Canvas() {
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
         onMove={onMove}
+        // Inside a component, panning is bounded to that component's world.
+        translateExtent={depth > 0 ? NESTED_EXTENT : undefined}
         fitView
         fitViewOptions={{ maxZoom: 0.5 }}
         defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
