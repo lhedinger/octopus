@@ -31,6 +31,8 @@ interface ArchState {
   path: string[];
   /** Bumped on any navigation so the canvas can refit the viewport. */
   navVersion: number;
+  /** On exit, the component we just came out of — so the canvas can centre on it. */
+  focusNodeId?: string;
 
   nodes: FlowNode[];
   edges: FlowEdge[];
@@ -223,6 +225,7 @@ export const useArchStore = create<ArchState>((set, get) => {
         selectedNodeId: undefined,
         selectedEdgeId: undefined,
         connectSource: undefined,
+        focusNodeId: undefined,
         navVersion: get().navVersion + 1,
       });
     },
@@ -243,6 +246,8 @@ export const useArchStore = create<ArchState>((set, get) => {
         selectedNodeId: undefined,
         selectedEdgeId: undefined,
         connectSource: undefined,
+        // Centre the parent on the component we just stepped out of.
+        focusNodeId: path[depth],
         navVersion: get().navVersion + 1,
       });
     },
@@ -261,6 +266,7 @@ export const useArchStore = create<ArchState>((set, get) => {
         selectedNodeId: undefined,
         selectedEdgeId: undefined,
         connectSource: undefined,
+        focusNodeId: undefined,
         navVersion: get().navVersion + 1,
       });
     },
@@ -279,6 +285,7 @@ export const useArchStore = create<ArchState>((set, get) => {
         selectedNodeId: undefined,
         selectedEdgeId: undefined,
         connectSource: undefined,
+        focusNodeId: undefined,
         navVersion: get().navVersion + 1,
       });
     },

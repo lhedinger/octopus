@@ -196,15 +196,25 @@ export function Canvas() {
     lastTap.current = quick ? { t: performance.now(), x: e.clientX, y: e.clientY, sel0: d.sel0 } : null;
   };
 
-  // After any navigation, frame the new level (or center an empty one) and fade the new layer in.
+  // After any navigation, frame the new level and fade the new layer in.
   useEffect(() => {
-    wrapperRef.current?.style.setProperty('--layer-opacity', '1');
-    if (getNodes().length > 0) {
+    const el = wrapperRef.current;
+    el?.style.setProperty('--layer-opacity', '1');
+    const W = el?.clientWidth ?? 0;
+    const Hh = el?.clientHeight ?? 0;
+    const focusId = useArchStore.getState().focusNodeId;
+    const focus = focusId ? getNodes().find((n) => n.id === focusId) : undefined;
+
+    if (focus) {
+      // Stepped out of a component: land centred on it at a comfortable size,
+      // so it reads as backing out of the box rather than jumping far away.
+      const z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, (0.4 * Math.min(W, Hh)) / TILE_SIZE));
+      const cx = focus.position.x + TILE_SIZE / 2;
+      const cy = focus.position.y + TILE_SIZE / 2;
+      setViewport({ x: W / 2 - cx * z, y: Hh / 2 - cy * z, zoom: z }, { duration: 300 });
+    } else if (getNodes().length > 0) {
       fitView({ maxZoom: 0.5, duration: 300 });
     } else {
-      const el = wrapperRef.current;
-      const W = el?.clientWidth ?? 0;
-      const Hh = el?.clientHeight ?? 0;
       setViewport({ x: W / 2 - TILE_SIZE, y: Hh / 2 - TILE_SIZE, zoom: 0.5 }, { duration: 300 });
     }
     const t = setTimeout(() => {
