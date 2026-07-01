@@ -30,10 +30,12 @@ const NESTED_EXTENT: CoordinateExtent = [
 ];
 // Crossing happens when the component (entering) or the interior world (exiting)
 // fills this fraction of the screen. The entry fill matches ENTER exactly so the
-// grid lines coincide across the boundary; EXIT sits lower for hysteresis.
+// grid lines coincide across the boundary. The exit band (EXIT_FILL..
+// CHILD_START_FILL) mirrors the entry band (FADE_START..ENTER_FILL) so exits
+// dissolve just like entries, and the gap gives generous hysteresis.
 const ENTER_FILL = 0.7;
 const CHILD_START_FILL = 0.7;
-const EXIT_FILL = 0.6;
+const EXIT_FILL = 0.4;
 const ENTER_ZOOM_MIN = 2.5;
 const FADE_START = 0.4;
 
@@ -123,11 +125,22 @@ export function Canvas() {
       const z = vp.zoom;
       const { path, enter, exitTo } = useArchStore.getState();
 
-      // Exit: the bounded interior has shrunk to the boundary — pop up a level.
-      if (path.length > 0 && (WORLD * z) / minDim <= EXIT_FILL) {
-        navigating.current = true;
-        exitTo(path.length - 1);
-        return true;
+      // Inside a level: exit once the interior world shrinks past the boundary,
+      // and fade the interior out as it approaches — mirroring the entry fade so
+      // exits read as a dissolve, not a snap. Above the band the interior stays
+      // fully opaque and falls through, so a centred child can still be entered.
+      if (path.length > 0) {
+        const worldFill = (WORLD * z) / minDim;
+        if (worldFill <= EXIT_FILL) {
+          navigating.current = true;
+          exitTo(path.length - 1);
+          return true;
+        }
+        if (worldFill < CHILD_START_FILL) {
+          const p = Math.min(1, (CHILD_START_FILL - worldFill) / (CHILD_START_FILL - EXIT_FILL));
+          el.style.setProperty('--layer-opacity', String(1 - p));
+          return false;
+        }
       }
 
       // Which top-level component is under the screen centre, and how much it fills.
