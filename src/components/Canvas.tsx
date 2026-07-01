@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Background,
   BackgroundVariant,
@@ -80,6 +80,26 @@ export function Canvas() {
 
   const [minimapShown, setMinimapShown] = useState(false);
   const navigating = useRef(false);
+  const fadeRaf = useRef<number>();
+
+  // Tween the fresh layer from transparent to opaque so a newly entered/exited
+  // level visibly fades in (rather than popping from the leftover fade-out value).
+  const fadeLayerIn = useCallback(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    if (fadeRaf.current) cancelAnimationFrame(fadeRaf.current);
+    const DURATION = 220;
+    const start = performance.now();
+    el.style.setProperty('--layer-opacity', '0');
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / DURATION);
+      const eased = 1 - (1 - t) * (1 - t); // ease-out quad
+      el.style.setProperty('--layer-opacity', String(eased));
+      if (t < 1) fadeRaf.current = requestAnimationFrame(step);
+      else fadeRaf.current = undefined;
+    };
+    fadeRaf.current = requestAnimationFrame(step);
+  }, []);
 
   // Set each fractal grid layer's opacity from its on-screen spacing at this zoom.
   const applyGridOpacity = useCallback((zoomLevel: number) => {
@@ -220,9 +240,12 @@ export function Canvas() {
   };
 
   // After any navigation, place the camera so the crossing stays seamless.
-  useEffect(() => {
+  // useLayoutEffect so the fresh layer is set transparent *before* paint (no
+  // flash of the leftover fade-out value), then tweened in.
+  useLayoutEffect(() => {
     const el = wrapperRef.current;
-    el?.style.setProperty('--layer-opacity', '1');
+    // Hide the fresh layer before it paints; fadeLayerIn() tweens it up below.
+    el?.style.setProperty('--layer-opacity', '0');
     const W = el?.clientWidth ?? 0;
     const H = el?.clientHeight ?? 0;
     const minDim = Math.min(W, H);
@@ -255,11 +278,15 @@ export function Canvas() {
     }
 
     applyGridOpacity(landingZoom);
+    fadeLayerIn();
     const t = setTimeout(() => {
       navigating.current = false;
     }, 400);
-    return () => clearTimeout(t);
-  }, [navVersion, fitView, setViewport, getNodes, applyGridOpacity]);
+    return () => {
+      clearTimeout(t);
+      if (fadeRaf.current) cancelAnimationFrame(fadeRaf.current);
+    };
+  }, [navVersion, fitView, setViewport, getNodes, applyGridOpacity, fadeLayerIn]);
 
   // Initialise the grid opacity for the starting viewport.
   useEffect(() => {

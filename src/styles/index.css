@@ -32,13 +32,15 @@ select,
 }
 
 /*
- * Layer cross-fade for drill-down: the canvas sets --layer-opacity as a
+ * Layer cross-fade for drill-down: the canvas drives --layer-opacity as a
  * component is zoomed toward filling the screen, fading the current level's
  * components out (and the next level in on entry). The grid stays put.
+ * Opacity is driven deterministically in JS (per-move fade-out, rAF tween
+ * fade-in), so no CSS transition here — a passive transition can't snap the
+ * fresh layer to a clean transparent start, which is exactly the fade-in bug.
  */
 .react-flow__viewport {
   opacity: var(--layer-opacity, 1);
-  transition: opacity 120ms ease-out;
 }
 
 /* Fractal background grid — each layer's opacity is driven from the zoom so the
