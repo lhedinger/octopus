@@ -9,6 +9,8 @@ export interface ComponentNodeData extends Record<string, unknown> {
   meta?: Record<string, unknown>;
   /** True when this node is a storage attached to a host microservice. */
   attached?: boolean;
+  /** True for always-present facets (test/build/deploy/behavior) — can't be deleted. */
+  fixed?: boolean;
 }
 
 export type FlowNode = Node<ComponentNodeData, 'component'>;
@@ -16,19 +18,21 @@ export type FlowEdge = Edge;
 
 export function nodeToFlow(node: ArchNode): FlowNode {
   const attached = Boolean(node.parentId);
+  const fixed = node.meta?.fixed === true;
   return {
     id: node.id,
     type: 'component',
     position: node.position,
     parentId: node.parentId,
-    // Attachments are owned by their host: they move with it, not on their own.
-    draggable: attached ? false : undefined,
+    // Attachments and fixed facets stay put; they aren't freely draggable.
+    draggable: attached || fixed ? false : undefined,
     data: {
       kind: node.kind,
       label: node.label,
       description: node.description,
       meta: node.meta,
       attached,
+      fixed,
     },
   };
 }

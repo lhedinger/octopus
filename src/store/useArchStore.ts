@@ -7,10 +7,10 @@ import {
   type EdgeChange,
   type NodeChange,
 } from '@xyflow/react';
-import type { ComponentKind, EdgeKind, Level, ProjectDocument } from '../model/types';
+import type { ArchNode, ComponentKind, EdgeKind, Level, ProjectDocument } from '../model/types';
 import { ROOT_PATH } from '../model/types';
 import { defaultLabel } from '../model/palette';
-import { canConnect } from '../model/relationships';
+import { canConnect, FACET_KINDS } from '../model/relationships';
 import { TILE_SIZE, snapPoint } from '../model/grid';
 import {
   edgeToFlow,
@@ -73,6 +73,31 @@ interface ArchState {
 
 let spawnIndex = 0;
 const keyOf = (path: string[]) => path.join('/');
+
+// Fixed facet positions inside a microservice's interior (a 2x2 block centred in the world).
+const FACET_LAYOUT: { x: number; y: number }[] = [
+  { x: 120, y: 120 },
+  { x: 360, y: 120 },
+  { x: 120, y: 360 },
+  { x: 360, y: 360 },
+];
+
+/** Ensure a microservice interior has its four always-present facets. */
+function withFacets(level: Level): Level {
+  const nodes = [...level.nodes];
+  FACET_KINDS.forEach((kind, i) => {
+    if (nodes.some((n) => n.kind === kind)) return;
+    const node: ArchNode = {
+      id: crypto.randomUUID(),
+      kind,
+      label: defaultLabel(kind),
+      position: FACET_LAYOUT[i],
+      meta: { fixed: true },
+    };
+    nodes.push(node);
+  });
+  return { nodes, edges: level.edges };
+}
 
 export const useArchStore = create<ArchState>((set, get) => {
   const project = loadProject();
@@ -162,6 +187,7 @@ export const useArchStore = create<ArchState>((set, get) => {
 
     deleteNode: (id) => {
       const { nodes, edges } = get();
+      if (nodes.find((n) => n.id === id)?.data.fixed) return; // facets are always present
       const removed = new Set<string>([id]);
       for (const n of nodes) if (n.parentId && removed.has(n.parentId)) removed.add(n.id);
       set({
@@ -211,11 +237,15 @@ export const useArchStore = create<ArchState>((set, get) => {
 
     enter: (nodeId) => {
       const { path } = get();
+      const host = get().nodes.find((n) => n.id === nodeId);
       const levels = flushed();
       const newPath = [...path, nodeId];
       const key = keyOf(newPath);
-      if (!levels[key]) levels[key] = { nodes: [], edges: [] };
-      const flow = levelToFlow(levels[key]);
+      let level = levels[key] ?? { nodes: [], edges: [] };
+      // A microservice always carries its test/build/deploy/behavior facets.
+      if (host?.data.kind === 'microservice') level = withFacets(level);
+      levels[key] = level;
+      const flow = levelToFlow(level);
       spawnIndex = 0;
       set({
         levels,

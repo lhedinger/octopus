@@ -7,6 +7,13 @@ export function isStorage(kind: ComponentKind): boolean {
   return STORAGE_KINDS.includes(kind);
 }
 
+/** Facet kinds are always present inside a microservice and don't use connections. */
+export const FACET_KINDS: ComponentKind[] = ['test', 'build', 'deploy', 'behavior'];
+
+export function isFacet(kind: ComponentKind): boolean {
+  return FACET_KINDS.includes(kind);
+}
+
 export type LinkKind = 'connection' | 'attachment';
 
 export interface ConnectCheck {
@@ -20,6 +27,9 @@ export interface ConnectCheck {
  * gateway; everything else is unconstrained for now.
  */
 export function canConnect(a: ComponentKind, b: ComponentKind): ConnectCheck {
+  if (isFacet(a) || isFacet(b)) {
+    return { ok: false, reason: 'That’s a built-in facet — it doesn’t use connections.' };
+  }
   if (a === b && a === 'microservice') return { ok: true };
   if (isStorage(a) || isStorage(b)) {
     return { ok: false, reason: 'Storage attaches to a microservice — it can’t be wired with a line.' };

@@ -7,7 +7,12 @@ export type ComponentKind =
   | 'apiGateway'
   | 'client'
   | 'externalSystem'
-  | 'datastore';
+  | 'datastore'
+  // Facets — always present inside a microservice, standalone (no connections).
+  | 'test'
+  | 'build'
+  | 'deploy'
+  | 'behavior';
 
 export type EdgeKind = 'sync' | 'async' | 'data';
 

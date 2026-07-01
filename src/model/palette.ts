@@ -1,5 +1,5 @@
 import type { ComponentKind } from './types';
-import { isStorage } from './relationships';
+import { isFacet, isStorage } from './relationships';
 
 export interface PaletteEntry {
   kind: ComponentKind;
@@ -21,6 +21,11 @@ const KIND_INFO: PaletteEntry[] = [
   { kind: 'client', label: 'Client', hint: 'User-facing app', hue: 95 },
   { kind: 'externalSystem', label: 'External System', hint: 'Third-party dependency', hue: 320 },
   { kind: 'datastore', label: 'Datastore', hint: 'Blob / object storage', hue: 50 },
+  // Facets (not shown in the dock — auto-present inside a microservice).
+  { kind: 'test', label: 'Test', hint: 'Test suites & coverage', hue: 135 },
+  { kind: 'build', label: 'Build', hint: 'Build / CI pipeline', hue: 45 },
+  { kind: 'deploy', label: 'Deploy', hint: 'Deployment / release', hue: 200 },
+  { kind: 'behavior', label: 'Behavior', hint: 'Runtime behaviour / logic', hue: 285 },
 ];
 
 const PALETTE_BY_KIND: Record<ComponentKind, PaletteEntry> = Object.fromEntries(
@@ -32,7 +37,7 @@ const PALETTE_BY_KIND: Record<ComponentKind, PaletteEntry> = Object.fromEntries(
  * host microservice (they can't exist on their own), so they never stand alone
  * in the palette.
  */
-export const PALETTE: PaletteEntry[] = KIND_INFO.filter((entry) => !isStorage(entry.kind));
+export const PALETTE: PaletteEntry[] = KIND_INFO.filter((entry) => !isStorage(entry.kind) && !isFacet(entry.kind));
 
 /** Storage kinds, for the host's "add storage" control. */
 export const STORAGE_PALETTE: PaletteEntry[] = KIND_INFO.filter((entry) => isStorage(entry.kind));

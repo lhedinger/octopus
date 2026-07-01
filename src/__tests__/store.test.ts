@@ -88,6 +88,27 @@ describe('useArchStore', () => {
     expect(store().notice).toBeTruthy();
   });
 
+  it('seeds a microservice interior with the four fixed facets', () => {
+    store().addNode('microservice', { x: 0, y: 0 });
+    const hostId = store().nodes[0].id;
+    store().enter(hostId);
+
+    const kinds = store().nodes.map((n) => n.data.kind).sort();
+    expect(kinds).toEqual(['behavior', 'build', 'deploy', 'test']);
+    expect(store().nodes.every((n) => n.data.fixed)).toBe(true);
+
+    // Facets can't be deleted.
+    const facet = store().nodes[0];
+    store().deleteNode(facet.id);
+    expect(store().nodes).toHaveLength(4);
+  });
+
+  it('does not seed facets inside a non-microservice', () => {
+    store().addNode('service', { x: 0, y: 0 });
+    store().enter(store().nodes[0].id);
+    expect(store().nodes).toHaveLength(0);
+  });
+
   it('serializes the root level into a project, snapping placement to a tile', () => {
     store().addNode('service', { x: 70, y: 130 });
     const project = store().toProject();
@@ -99,7 +120,8 @@ describe('useArchStore', () => {
   });
 
   it('drills into a component and keeps each level separate', () => {
-    store().addNode('microservice', { x: 0, y: 0 });
+    // A plain service doesn't seed facets, so counts are clean.
+    store().addNode('service', { x: 0, y: 0 });
     const hostId = store().nodes[0].id;
 
     store().enter(hostId);

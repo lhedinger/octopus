@@ -12,7 +12,7 @@ const LABEL_HEIGHT = 20;
 const iconBtn = 'flex h-8 w-8 items-center justify-center rounded-lg text-base text-slate-200 transition hover:bg-white/10';
 
 export function ComponentNode({ id, data }: NodeProps<FlowNode>) {
-  const { kind, label, description, attached } = data;
+  const { kind, label, description, attached, fixed } = data;
   const tapConnect = useArchStore((s) => s.tapConnect);
   const connectSource = useArchStore((s) => s.connectSource);
   const sourceKind = useArchStore((s) => s.nodes.find((n) => n.id === s.connectSource)?.data.kind);
@@ -57,7 +57,9 @@ export function ComponentNode({ id, data }: NodeProps<FlowNode>) {
               <button className={`${iconBtn} ${panel === 'storage' ? '!bg-white/10 !text-accent' : ''}`} title="Add storage" onClick={() => setPanel((p) => (p === 'storage' ? 'none' : 'storage'))}>＋</button>
             )}
             <button className={`${iconBtn} ${panel === 'details' ? '!bg-white/10 !text-accent' : ''}`} title="Description" onClick={() => setPanel((p) => (p === 'details' ? 'none' : 'details'))}>☰</button>
-            <button className={`${iconBtn} hover:!bg-red-500/15 hover:!text-red-300`} title="Delete" onClick={() => deleteNode(id)}>🗑</button>
+            {!fixed && (
+              <button className={`${iconBtn} hover:!bg-red-500/15 hover:!text-red-300`} title="Delete" onClick={() => deleteNode(id)}>🗑</button>
+            )}
           </div>
 
           {panel === 'storage' && (
@@ -84,7 +86,7 @@ export function ComponentNode({ id, data }: NodeProps<FlowNode>) {
         </div>
       </NodeToolbar>
 
-      {!attached && <Handle type="target" position={Position.Top} className="!h-3 !w-3 !bg-accent" />}
+      {!attached && !fixed && <Handle type="target" position={Position.Top} className="!h-3 !w-3 !bg-accent" />}
 
       <div style={{ width: art, height: art }} className="pointer-events-none flex items-center justify-center">
         {aiImage ? (
@@ -115,7 +117,7 @@ export function ComponentNode({ id, data }: NodeProps<FlowNode>) {
         </div>
       )}
 
-      {!attached && <Handle type="source" position={Position.Bottom} className="!h-3 !w-3 !bg-accent" />}
+      {!attached && !fixed && <Handle type="source" position={Position.Bottom} className="!h-3 !w-3 !bg-accent" />}
     </div>
   );
 }

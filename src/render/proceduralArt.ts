@@ -133,6 +133,17 @@ function buildBody(shapes: Shape[], input: ArtInput, p: Palette, rng: Rng): void
       shapes.push({ t: 'text', x, y, value: '?', fill: hsl(p.hue, 60, 30), size: 9 });
       break;
     }
+    case 'test':
+    case 'build':
+    case 'deploy':
+    case 'behavior': {
+      // Facets read as a flat labelled pad, distinct from the taller components.
+      addCuboid(shapes, cuboid({ cx: 0, cy: 0, hx: 4, hy: 4, h: 1.2, hue: p.hue, sat: p.sat, light: p.light }));
+      const x = ISO.sx(0, 0);
+      const y = ISO.sy(0, 0, 1.2);
+      shapes.push({ t: 'circle', cx: x, cy: y, r: 3.2, fill: hsl((p.hue + 40) % 360, 75, 66) });
+      break;
+    }
     case 'service':
     case 'microservice':
     default: {
