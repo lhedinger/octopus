@@ -40,3 +40,11 @@ select,
   opacity: var(--layer-opacity, 1);
   transition: opacity 120ms ease-out;
 }
+
+/* Fractal background grid — each layer's opacity is driven from the zoom so the
+ * grid overlaps perfectly across drill levels. */
+.react-flow__background.g0 { opacity: var(--g0, 0); }
+.react-flow__background.g1 { opacity: var(--g1, 0); }
+.react-flow__background.g2 { opacity: var(--g2, 0); }
+.react-flow__background.g3 { opacity: var(--g3, 0); }
+.react-flow__background.g4 { opacity: var(--g4, 0); }

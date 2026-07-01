@@ -13,7 +13,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { useArchStore } from '../store/useArchStore';
 import { canConnect } from '../model/relationships';
-import { TILE_SIZE, SUB_GRID } from '../model/grid';
+import { TILE_SIZE } from '../model/grid';
 import type { FlowNode } from '../model/mapping';
 import { ComponentNode } from './nodes/ComponentNode';
 
@@ -29,13 +29,22 @@ const NESTED_EXTENT: CoordinateExtent = [
   [WORLD + WORLD_MARGIN, WORLD + WORLD_MARGIN],
 ];
 // Crossing happens when the component (entering) or the interior world (exiting)
-// fills this fraction of the screen — matched so the apparent scale stays
-// continuous across the boundary (seamless zoom).
+// fills this fraction of the screen. The entry fill matches ENTER exactly so the
+// grid lines coincide across the boundary; EXIT sits lower for hysteresis.
 const ENTER_FILL = 0.7;
-const CHILD_START_FILL = 0.75; // a touch inside, so a pan right after entering won't pop back out
-const EXIT_FILL = 0.65;
+const CHILD_START_FILL = 0.7;
+const EXIT_FILL = 0.6;
 const ENTER_ZOOM_MIN = 2.5;
 const FADE_START = 0.4;
+
+// Fractal background grid: scales a constant factor (WORLD/TILE = TILE/SUB = 5)
+// apart, so every line coincides with one a level up/down. Each layer's opacity
+// follows its on-screen spacing, so the grid overlaps perfectly across drill
+// levels and stays continuous as you zoom.
+const GRID_SCALES = [24 / 5, 24, 120, 600, 3000];
+const GRID_DENSE_PX = 6;
+const GRID_RAMP_PX = 140;
+const GRID_MAX_OP = 0.6;
 
 export function Canvas() {
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -71,6 +80,17 @@ export function Canvas() {
 
   const [minimapShown, setMinimapShown] = useState(false);
   const navigating = useRef(false);
+
+  // Set each fractal grid layer's opacity from its on-screen spacing at this zoom.
+  const applyGridOpacity = useCallback((zoomLevel: number) => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    for (let i = 0; i < GRID_SCALES.length; i++) {
+      const spacing = GRID_SCALES[i] * zoomLevel;
+      const op = Math.max(0, Math.min(1, (spacing - GRID_DENSE_PX) / GRID_RAMP_PX)) * GRID_MAX_OP;
+      el.style.setProperty(`--g${i}`, String(op));
+    }
+  }, []);
 
   // Drill-down + fade for a given viewport. Returns true if it navigated.
   const navFor = useCallback(
@@ -121,9 +141,10 @@ export function Canvas() {
   const onMove = useCallback(
     (_: unknown, viewport: Viewport) => {
       setMinimapShown(true);
+      applyGridOpacity(viewport.zoom);
       navFor(viewport);
     },
-    [navFor],
+    [navFor, applyGridOpacity],
   );
 
   // --- One-thumb double-tap-and-drag zoom (Google-Maps style) ---
@@ -152,6 +173,7 @@ export function Canvas() {
     const vp = { x: g.fx - g.flowX * newZoom, y: g.fy - g.flowY * newZoom, zoom: newZoom };
     setViewport(vp);
     setMinimapShown(true);
+    applyGridOpacity(newZoom);
     if (navFor(vp)) endZoom();
   };
 
@@ -205,6 +227,7 @@ export function Canvas() {
     const H = el?.clientHeight ?? 0;
     const minDim = Math.min(W, H);
     const { focusNodeId, path } = useArchStore.getState();
+    let landingZoom = 0.5;
 
     if (focusNodeId) {
       // Exited: land on the component we came out of, at the boundary scale, so
@@ -215,6 +238,7 @@ export function Canvas() {
         const cx = node.position.x + TILE_SIZE / 2;
         const cy = node.position.y + TILE_SIZE / 2;
         setViewport({ x: W / 2 - cx * z, y: H / 2 - cy * z, zoom: z });
+        landingZoom = z;
       } else {
         fitView({ maxZoom: 0.5, duration: 250 });
       }
@@ -223,17 +247,24 @@ export function Canvas() {
       const z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, (CHILD_START_FILL * minDim) / WORLD));
       const c = WORLD / 2;
       setViewport({ x: W / 2 - c * z, y: H / 2 - c * z, zoom: z });
+      landingZoom = z;
     } else if (getNodes().length > 0) {
       fitView({ maxZoom: 0.5, duration: 300 });
     } else {
       setViewport({ x: W / 2 - TILE_SIZE, y: H / 2 - TILE_SIZE, zoom: 0.5 }, { duration: 300 });
     }
 
+    applyGridOpacity(landingZoom);
     const t = setTimeout(() => {
       navigating.current = false;
     }, 400);
     return () => clearTimeout(t);
-  }, [navVersion, fitView, setViewport, getNodes]);
+  }, [navVersion, fitView, setViewport, getNodes, applyGridOpacity]);
+
+  // Initialise the grid opacity for the starting viewport.
+  useEffect(() => {
+    applyGridOpacity(getViewport().zoom);
+  }, [applyGridOpacity, getViewport]);
 
   useEffect(() => {
     if (!minimapShown) return;
@@ -272,8 +303,9 @@ export function Canvas() {
         snapToGrid
         snapGrid={[TILE_SIZE, TILE_SIZE]}
       >
-        <Background id="subgrid" variant={BackgroundVariant.Lines} gap={SUB_GRID} lineWidth={1} color="#172033" />
-        <Background id="tiles" variant={BackgroundVariant.Lines} gap={TILE_SIZE} lineWidth={1} color="#2b3a52" />
+        {GRID_SCALES.map((gap, i) => (
+          <Background key={gap} id={`grid${i}`} className={`gridlayer g${i}`} variant={BackgroundVariant.Lines} gap={gap} lineWidth={1} color="#3a4a63" />
+        ))}
         <MiniMap
           pannable
           zoomable
