@@ -12,9 +12,17 @@ export type ComponentKind =
   | 'test'
   | 'build'
   | 'deploy'
-  | 'behavior';
+  | 'behavior'
+  // Behavior blocks — the runtime-flow vocabulary inside a Behavior facet.
+  | 'trigger'
+  | 'step'
+  | 'decision'
+  | 'rule'
+  | 'event'
+  | 'outcome';
 
-export type EdgeKind = 'sync' | 'async' | 'data';
+// 'flow' is a directional "then / next" link between behavior blocks.
+export type EdgeKind = 'sync' | 'async' | 'data' | 'flow';
 
 export interface ArchNode {
   id: string;

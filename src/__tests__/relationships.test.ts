@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canAttach, canConnect, isStorage } from '../model/relationships';
+import { canAttach, canConnect, isBehavior, isStorage } from '../model/relationships';
 
 describe('relationship rules', () => {
   it('treats datastore, database and cache as storage', () => {
@@ -29,5 +29,17 @@ describe('relationship rules', () => {
     expect(canAttach('database', 'microservice')).toBe(true);
     expect(canAttach('database', 'service')).toBe(false);
     expect(canAttach('service', 'microservice')).toBe(false);
+  });
+
+  it('recognizes the behavior-block vocabulary', () => {
+    expect(['trigger', 'step', 'decision', 'rule', 'event', 'outcome'].every((k) => isBehavior(k as never))).toBe(true);
+    expect(isBehavior('service')).toBe(false);
+  });
+
+  it('lets behavior blocks flow into each other but not into infrastructure', () => {
+    expect(canConnect('trigger', 'step').ok).toBe(true);
+    expect(canConnect('decision', 'outcome').ok).toBe(true);
+    expect(canConnect('step', 'database').ok).toBe(false);
+    expect(canConnect('service', 'outcome').ok).toBe(false);
   });
 });

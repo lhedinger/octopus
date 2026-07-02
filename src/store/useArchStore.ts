@@ -10,7 +10,7 @@ import {
 import type { ArchNode, ComponentKind, EdgeKind, Level, ProjectDocument } from '../model/types';
 import { ROOT_PATH } from '../model/types';
 import { defaultLabel } from '../model/palette';
-import { canConnect, FACET_KINDS } from '../model/relationships';
+import { canConnect, FACET_KINDS, isBehavior } from '../model/relationships';
 import { TILE_SIZE, snapPoint } from '../model/grid';
 import {
   edgeToFlow,
@@ -22,7 +22,7 @@ import {
 } from '../model/mapping';
 import { loadProject } from './persistence';
 
-interface ArchState {
+export interface ArchState {
   docId: string;
   docName: string;
   /** Every drill-down canvas, keyed by the path of entered component ids. */
@@ -99,6 +99,22 @@ function withFacets(level: Level): Level {
   return { nodes, edges: level.edges };
 }
 
+/**
+ * Warm-start a Behavior facet with a single Trigger so the canvas invites
+ * "…and then what?" instead of being blank. Only seeded while empty — it's a
+ * starting anchor, not a fixed facet, so it can be moved or replaced.
+ */
+function withTrigger(level: Level): Level {
+  if (level.nodes.length > 0) return level;
+  const node: ArchNode = {
+    id: crypto.randomUUID(),
+    kind: 'trigger',
+    label: defaultLabel('trigger'),
+    position: { x: 240, y: 120 },
+  };
+  return { nodes: [node], edges: level.edges };
+}
+
 export const useArchStore = create<ArchState>((set, get) => {
   const project = loadProject();
   const rootLevel = project.levels[ROOT_PATH] ?? { nodes: [], edges: [] };
@@ -132,7 +148,8 @@ export const useArchStore = create<ArchState>((set, get) => {
         set({ notice: check.reason });
         return;
       }
-      const edge = edgeToFlow({ id: crypto.randomUUID(), source: connection.source!, target: connection.target!, kind: 'sync' });
+      const kind: EdgeKind = isBehavior(source.data.kind) ? 'flow' : 'sync';
+      const edge = edgeToFlow({ id: crypto.randomUUID(), source: connection.source!, target: connection.target!, kind });
       set({ edges: addEdge(edge, get().edges) });
     },
 
@@ -229,7 +246,8 @@ export const useArchStore = create<ArchState>((set, get) => {
         set({ notice: check.reason ?? 'Those components can’t be connected.', connectSource: undefined });
         return;
       }
-      const edge = edgeToFlow({ id: crypto.randomUUID(), source: connectSource, target: id, kind: 'sync' });
+      const kind: EdgeKind = source && isBehavior(source.data.kind) ? 'flow' : 'sync';
+      const edge = edgeToFlow({ id: crypto.randomUUID(), source: connectSource, target: id, kind });
       set({ edges: addEdge(edge, get().edges), connectSource: undefined });
     },
 
@@ -244,6 +262,8 @@ export const useArchStore = create<ArchState>((set, get) => {
       let level = levels[key] ?? { nodes: [], edges: [] };
       // A microservice always carries its test/build/deploy/behavior facets.
       if (host?.data.kind === 'microservice') level = withFacets(level);
+      // A Behavior facet opens on a starting Trigger.
+      else if (host?.data.kind === 'behavior') level = withTrigger(level);
       levels[key] = level;
       const flow = levelToFlow(level);
       spawnIndex = 0;
@@ -328,4 +348,17 @@ export const useArchStore = create<ArchState>((set, get) => {
 export function nextSpawnPosition(): { x: number; y: number } {
   const i = spawnIndex;
   return { x: (1 + (i % 4)) * TILE_SIZE, y: (1 + Math.floor(i / 4)) * TILE_SIZE };
+}
+
+/**
+ * The kind of the component whose interior is the active level (undefined at
+ * the root). Drives context-aware UI like the palette. The container node lives
+ * in the parent level, keyed by the path minus its last id.
+ */
+export function selectContainerKind(state: ArchState): ComponentKind | undefined {
+  const { path, levels } = state;
+  if (path.length === 0) return undefined;
+  const parentKey = keyOf(path.slice(0, -1));
+  const containerId = path[path.length - 1];
+  return levels[parentKey]?.nodes.find((n) => n.id === containerId)?.kind;
 }

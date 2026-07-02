@@ -1,4 +1,4 @@
-import type { Edge, Node } from '@xyflow/react';
+import { MarkerType, type Edge, type Node } from '@xyflow/react';
 import type { ArchDocument, ArchEdge, ArchNode, ComponentKind, EdgeKind, Level } from './types';
 
 /** Data carried on a React Flow node for our custom renderer. */
@@ -38,6 +38,8 @@ export function nodeToFlow(node: ArchNode): FlowNode {
 }
 
 export function edgeToFlow(edge: ArchEdge): FlowEdge {
+  // Behavior flow reads as a directional "then / next" arrow.
+  const flow = edge.kind === 'flow';
   return {
     id: edge.id,
     source: edge.source,
@@ -45,6 +47,8 @@ export function edgeToFlow(edge: ArchEdge): FlowEdge {
     label: edge.label,
     type: 'smoothstep',
     animated: edge.kind === 'async',
+    markerEnd: flow ? { type: MarkerType.ArrowClosed, color: '#38bdf8', width: 18, height: 18 } : undefined,
+    style: flow ? { stroke: '#38bdf8', strokeWidth: 2 } : undefined,
     data: { kind: edge.kind },
   };
 }

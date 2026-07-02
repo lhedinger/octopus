@@ -1,11 +1,11 @@
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useReactFlow } from '@xyflow/react';
-import { PALETTE, paletteEntry } from '../model/palette';
+import { paletteEntry, paletteForContainer } from '../model/palette';
 import type { ComponentKind } from '../model/types';
 import { ComponentArt } from '../render/ComponentArt';
 import { TILE_SIZE } from '../model/grid';
-import { nextSpawnPosition, useArchStore } from '../store/useArchStore';
+import { nextSpawnPosition, selectContainerKind, useArchStore } from '../store/useArchStore';
 
 const DRAG_THRESHOLD = 8;
 
@@ -16,6 +16,10 @@ const DRAG_THRESHOLD = 8;
  */
 export function Palette() {
   const addNode = useArchStore((s) => s.addNode);
+  // The dock's contents follow the container you've drilled into: behavior
+  // blocks inside a Behavior facet, infrastructure everywhere else.
+  const containerKind = useArchStore(selectContainerKind);
+  const entries = paletteForContainer(containerKind);
   const { screenToFlowPosition } = useReactFlow();
   const [ghost, setGhost] = useState<{ kind: ComponentKind; x: number; y: number } | null>(null);
   const drag = useRef<{ kind: ComponentKind; x0: number; y0: number; started: boolean } | null>(null);
@@ -68,7 +72,7 @@ export function Palette() {
         data-overlay
         className="absolute bottom-3 left-1/2 z-20 flex max-w-[calc(100vw-1.5rem)] -translate-x-1/2 gap-1 overflow-x-auto rounded-2xl border border-white/10 bg-panel/80 p-1.5 shadow-lg backdrop-blur"
       >
-        {PALETTE.map((entry) => (
+        {entries.map((entry) => (
           <button
             key={entry.kind}
             onPointerDown={onPointerDown(entry.kind)}

@@ -14,6 +14,17 @@ export function isFacet(kind: ComponentKind): boolean {
   return FACET_KINDS.includes(kind);
 }
 
+/**
+ * Behavior blocks live inside a Behavior facet and model a service's runtime
+ * flow (Trigger → Step → Decision → Rule → Event → Outcome). They link to one
+ * another with directional flow arrows and never mix with infrastructure kinds.
+ */
+export const BEHAVIOR_KINDS: ComponentKind[] = ['trigger', 'step', 'decision', 'rule', 'event', 'outcome'];
+
+export function isBehavior(kind: ComponentKind): boolean {
+  return BEHAVIOR_KINDS.includes(kind);
+}
+
 export type LinkKind = 'connection' | 'attachment';
 
 export interface ConnectCheck {
@@ -27,6 +38,12 @@ export interface ConnectCheck {
  * gateway; everything else is unconstrained for now.
  */
 export function canConnect(a: ComponentKind, b: ComponentKind): ConnectCheck {
+  // Behavior blocks flow into one another, but never wire to infrastructure.
+  if (isBehavior(a) || isBehavior(b)) {
+    return isBehavior(a) && isBehavior(b)
+      ? { ok: true }
+      : { ok: false, reason: 'Behavior blocks flow into other behavior blocks — not infrastructure.' };
+  }
   if (isFacet(a) || isFacet(b)) {
     return { ok: false, reason: 'That’s a built-in facet — it doesn’t use connections.' };
   }

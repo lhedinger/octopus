@@ -1,5 +1,5 @@
 import type { ComponentKind } from './types';
-import { isFacet, isStorage } from './relationships';
+import { isBehavior, isFacet, isStorage } from './relationships';
 
 export interface PaletteEntry {
   kind: ComponentKind;
@@ -26,6 +26,13 @@ const KIND_INFO: PaletteEntry[] = [
   { kind: 'build', label: 'Build', hint: 'Build / CI pipeline', hue: 45 },
   { kind: 'deploy', label: 'Deploy', hint: 'Deployment / release', hue: 200 },
   { kind: 'behavior', label: 'Behavior', hint: 'Runtime behaviour / logic', hue: 285 },
+  // Behavior blocks — the runtime-flow vocabulary inside a Behavior facet.
+  { kind: 'trigger', label: 'Trigger', hint: 'What starts it — request / event / schedule', hue: 145 },
+  { kind: 'step', label: 'Step', hint: 'A unit of work / processing', hue: 210 },
+  { kind: 'decision', label: 'Decision', hint: 'A branch on a condition', hue: 45 },
+  { kind: 'rule', label: 'Rule', hint: 'A guard / validation / policy', hue: 275 },
+  { kind: 'event', label: 'Event', hint: 'An event the service emits', hue: 25 },
+  { kind: 'outcome', label: 'Outcome', hint: 'A terminal result — success / failure', hue: 340 },
 ];
 
 const PALETTE_BY_KIND: Record<ComponentKind, PaletteEntry> = Object.fromEntries(
@@ -37,10 +44,20 @@ const PALETTE_BY_KIND: Record<ComponentKind, PaletteEntry> = Object.fromEntries(
  * host microservice (they can't exist on their own), so they never stand alone
  * in the palette.
  */
-export const PALETTE: PaletteEntry[] = KIND_INFO.filter((entry) => !isStorage(entry.kind) && !isFacet(entry.kind));
+export const PALETTE: PaletteEntry[] = KIND_INFO.filter(
+  (entry) => !isStorage(entry.kind) && !isFacet(entry.kind) && !isBehavior(entry.kind),
+);
 
 /** Storage kinds, for the host's "add storage" control. */
 export const STORAGE_PALETTE: PaletteEntry[] = KIND_INFO.filter((entry) => isStorage(entry.kind));
+
+/** Behavior blocks, offered in the dock only when inside a Behavior facet. */
+export const BEHAVIOR_PALETTE: PaletteEntry[] = KIND_INFO.filter((entry) => isBehavior(entry.kind));
+
+/** The dock's contents depend on what container you've drilled into. */
+export function paletteForContainer(containerKind?: ComponentKind): PaletteEntry[] {
+  return containerKind === 'behavior' ? BEHAVIOR_PALETTE : PALETTE;
+}
 
 export function paletteEntry(kind: ComponentKind): PaletteEntry {
   return PALETTE_BY_KIND[kind];

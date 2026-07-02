@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { useArchStore } from '../store/useArchStore';
+import { selectContainerKind, useArchStore } from '../store/useArchStore';
 
 const store = () => useArchStore.getState();
 
@@ -107,6 +107,26 @@ describe('useArchStore', () => {
     store().addNode('service', { x: 0, y: 0 });
     store().enter(store().nodes[0].id);
     expect(store().nodes).toHaveLength(0);
+  });
+
+  it('opens a Behavior facet on a starting Trigger and flows blocks together', () => {
+    store().addNode('microservice', { x: 0, y: 0 });
+    store().enter(store().nodes[0].id);
+    const behavior = store().nodes.find((n) => n.data.kind === 'behavior')!;
+    store().enter(behavior.id);
+
+    // Warm start: exactly one Trigger, and the context resolves to Behavior.
+    expect(store().nodes).toHaveLength(1);
+    expect(store().nodes[0].data.kind).toBe('trigger');
+    expect(selectContainerKind(useArchStore.getState())).toBe('behavior');
+
+    // A behavior→behavior connection is a directional flow edge.
+    store().addNode('step', { x: 360, y: 120 });
+    const trigger = store().nodes.find((n) => n.data.kind === 'trigger')!;
+    const step = store().nodes.find((n) => n.data.kind === 'step')!;
+    store().onConnect({ source: trigger.id, target: step.id, sourceHandle: null, targetHandle: null });
+    expect(store().edges).toHaveLength(1);
+    expect(store().edges[0].data?.kind).toBe('flow');
   });
 
   it('serializes the root level into a project, snapping placement to a tile', () => {

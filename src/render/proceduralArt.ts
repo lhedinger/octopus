@@ -81,6 +81,38 @@ function roofProp(shapes: Shape[], p: Palette, rng: Rng, z: number): void {
   }
 }
 
+/** Distinct top glyph for each behavior block, drawn in screen space at (cx, cy). */
+function behaviorGlyph(shapes: Shape[], kind: ComponentKind, cx: number, cy: number, color: string): void {
+  switch (kind) {
+    case 'trigger': // play arrow — "start"
+      shapes.push({ t: 'poly', points: `${cx - 4},${cy - 7} ${cx + 8},${cy} ${cx - 4},${cy + 7}`, fill: color });
+      break;
+    case 'step': // solid block — a unit of work
+      shapes.push({ t: 'poly', points: `${cx - 6},${cy - 5} ${cx + 6},${cy - 5} ${cx + 6},${cy + 5} ${cx - 6},${cy + 5}`, fill: color });
+      break;
+    case 'decision': // diamond — a branch on a condition
+      shapes.push({ t: 'poly', points: `${cx},${cy - 8} ${cx + 8},${cy} ${cx},${cy + 8} ${cx - 8},${cy}`, fill: color });
+      break;
+    case 'rule': // shield — a guard / policy
+      shapes.push({ t: 'poly', points: `${cx - 6},${cy - 6} ${cx + 6},${cy - 6} ${cx + 6},${cy + 1} ${cx},${cy + 8} ${cx - 6},${cy + 1}`, fill: color });
+      break;
+    case 'event': { // burst — an emitted signal
+      shapes.push({ t: 'circle', cx, cy, r: 3, fill: color });
+      const rays = [[-1, -1], [1, -1], [1, 1], [-1, 1], [0, -1.4], [0, 1.4], [-1.4, 0], [1.4, 0]];
+      for (const [dx, dy] of rays) {
+        shapes.push({ t: 'line', x1: cx + dx * 3.2, y1: cy + dy * 3.2, x2: cx + dx * 7, y2: cy + dy * 7, stroke: color, sw: 1.4 });
+      }
+      break;
+    }
+    case 'outcome': // flag — a terminal result
+      shapes.push({ t: 'line', x1: cx - 5, y1: cy - 8, x2: cx - 5, y2: cy + 8, stroke: color, sw: 1.6 });
+      shapes.push({ t: 'poly', points: `${cx - 5},${cy - 8} ${cx + 7},${cy - 5} ${cx - 5},${cy - 1}`, fill: color });
+      break;
+    default:
+      break;
+  }
+}
+
 function buildBody(shapes: Shape[], input: ArtInput, p: Palette, rng: Rng): void {
   shapes.push({ t: 'poly', points: platform(p.hue, p.sat - 25, p.light - 32).points, fill: hsl(p.hue, p.sat - 25, p.light - 32) });
 
@@ -142,6 +174,19 @@ function buildBody(shapes: Shape[], input: ArtInput, p: Palette, rng: Rng): void
       const x = ISO.sx(0, 0);
       const y = ISO.sy(0, 0, 1.2);
       shapes.push({ t: 'circle', cx: x, cy: y, r: 3.2, fill: hsl((p.hue + 40) % 360, 75, 66) });
+      break;
+    }
+    case 'trigger':
+    case 'step':
+    case 'decision':
+    case 'rule':
+    case 'event':
+    case 'outcome': {
+      // Behavior blocks are flat labelled tiles carrying a distinct glyph — a
+      // separate visual family from the isometric infrastructure buildings.
+      const h = 1.3;
+      addCuboid(shapes, cuboid({ cx: 0, cy: 0, hx: 4, hy: 4, h, hue: p.hue, sat: p.sat, light: p.light }));
+      behaviorGlyph(shapes, input.kind, ISO.sx(0, 0), ISO.sy(0, 0, h), hsl((p.hue + 30) % 360, 85, 70));
       break;
     }
     case 'service':
