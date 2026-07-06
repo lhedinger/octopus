@@ -1,0 +1,12 @@
+octopus: 1
+repo: notifications
+name: Notifications
+kind: microservice
+description: Email and push receipts
+context: communication
+dependencies:
+  # Not scanned — appears on the map as an external-system stub.
+  - repo: ses
+    label: SMTP API
+build: [lint, docker image]
+deploy: [staging, production]

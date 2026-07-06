@@ -49,7 +49,7 @@ export function edgeToFlow(edge: ArchEdge): FlowEdge {
     animated: edge.kind === 'async',
     markerEnd: flow ? { type: MarkerType.ArrowClosed, color: '#38bdf8', width: 18, height: 18 } : undefined,
     style: flow ? { stroke: '#38bdf8', strokeWidth: 2 } : undefined,
-    data: { kind: edge.kind },
+    data: { kind: edge.kind, meta: edge.meta },
   };
 }
 
@@ -81,6 +81,7 @@ export function flowToEdge(edge: FlowEdge): ArchEdge {
     target: edge.target,
     label: typeof edge.label === 'string' ? edge.label : undefined,
     kind: (edge.data?.kind as EdgeKind | undefined) ?? 'sync',
+    meta: edge.data?.meta as Record<string, unknown> | undefined,
   };
 }
 

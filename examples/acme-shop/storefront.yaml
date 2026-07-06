@@ -1,0 +1,9 @@
+octopus: 1
+repo: storefront
+name: Storefront
+kind: client
+description: Web and mobile shop UI
+context: experience
+dependencies:
+  - repo: gateway
+    label: REST

@@ -1,0 +1,10 @@
+octopus: 1
+repo: gateway
+name: Edge Gateway
+kind: apiGateway
+description: Routing, auth, rate limiting
+context: experience
+dependencies:
+  - repo: catalog
+  - repo: orders
+  - repo: payments

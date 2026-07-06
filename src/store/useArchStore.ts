@@ -10,7 +10,8 @@ import {
 import type { ArchNode, ComponentKind, EdgeKind, Level, ProjectDocument } from '../model/types';
 import { ROOT_PATH } from '../model/types';
 import { defaultLabel } from '../model/palette';
-import { canConnect, FACET_KINDS, isBehavior } from '../model/relationships';
+import { canConnect, isBehavior } from '../model/relationships';
+import { withFacets } from '../model/facets';
 import { TILE_SIZE, snapPoint } from '../model/grid';
 import {
   edgeToFlow,
@@ -59,6 +60,8 @@ export interface ArchState {
   setTapConnect: (on: boolean) => void;
   tapNode: (id: string) => void;
   clearNotice: () => void;
+  /** Show a transient toast (also used for rule-blocked actions). */
+  notify: (message: string) => void;
 
   /** Drill into a component, opening (or creating) its inner canvas. */
   enter: (nodeId: string) => void;
@@ -73,31 +76,6 @@ export interface ArchState {
 
 let spawnIndex = 0;
 const keyOf = (path: string[]) => path.join('/');
-
-// Fixed facet positions inside a microservice's interior (a 2x2 block centred in the world).
-const FACET_LAYOUT: { x: number; y: number }[] = [
-  { x: 120, y: 120 },
-  { x: 360, y: 120 },
-  { x: 120, y: 360 },
-  { x: 360, y: 360 },
-];
-
-/** Ensure a microservice interior has its four always-present facets. */
-function withFacets(level: Level): Level {
-  const nodes = [...level.nodes];
-  FACET_KINDS.forEach((kind, i) => {
-    if (nodes.some((n) => n.kind === kind)) return;
-    const node: ArchNode = {
-      id: crypto.randomUUID(),
-      kind,
-      label: defaultLabel(kind),
-      position: FACET_LAYOUT[i],
-      meta: { fixed: true },
-    };
-    nodes.push(node);
-  });
-  return { nodes, edges: level.edges };
-}
 
 /**
  * Warm-start a Behavior facet with a single Trigger so the canvas invites
@@ -252,6 +230,8 @@ export const useArchStore = create<ArchState>((set, get) => {
     },
 
     clearNotice: () => set({ notice: undefined }),
+
+    notify: (message) => set({ notice: message }),
 
     enter: (nodeId) => {
       const { path } = get();

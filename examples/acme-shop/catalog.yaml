@@ -1,0 +1,12 @@
+octopus: 1
+repo: catalog
+name: Catalog
+kind: microservice
+description: Products, categories, search
+context: commerce
+storage:
+  - kind: database
+    name: catalog-db
+build: [lint, unit tests, docker image]
+test: [unit, search relevance suite]
+deploy: [staging, production]

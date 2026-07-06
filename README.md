@@ -35,6 +35,18 @@ npm run build    # static production build in dist/
   **Export** / **Import** to move a design between devices as a `.octopus.json`
   file.
 
+## Mapping real systems (scan YAML)
+
+Octopus's goal is to map real multi-repo systems — dependencies, bounded
+contexts, and the layers inside each service. Scanners describe each repo in a
+small YAML document ([format reference](docs/scan-format.md)); importing those
+files via **⋯ → Import…** assembles the map, auto-laid-out by dependency depth
+and grouped by bounded context. Re-importing a newer scan updates the facts
+while keeping your arrangement and hand-drawn additions.
+
+Try it: import the files in [`examples/acme-shop/`](examples/acme-shop) and
+drill into **Payments** to see its scanned runtime behavior.
+
 ## Architecture
 
 The domain model (`src/model/types.ts`) is independent of the rendering library.

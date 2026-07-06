@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useArchStore } from '../store/useArchStore';
 import { exportToFile, parseImportedProject } from '../store/persistence';
+import { assembleProject, isRepoDoc, mergeScan, parseScanDocs, type ScanDoc } from '../scanner';
 
 export function Toolbar() {
   const fileInput = useRef<HTMLInputElement>(null);
@@ -12,12 +13,23 @@ export function Toolbar() {
   const newProject = useArchStore((s) => s.newProject);
   const loadFromProject = useArchStore((s) => s.loadFromProject);
   const toProject = useArchStore((s) => s.toProject);
+  const notify = useArchStore((s) => s.notify);
 
-  const onImport = async (file: File) => {
+  const onImport = async (files: File[]) => {
     try {
-      loadFromProject(parseImportedProject(await file.text()));
-    } catch {
-      alert('Could not import: not a valid Octopus project.');
+      const yamlFiles = files.filter((f) => /\.ya?ml$/i.test(f.name));
+      if (yamlFiles.length > 0) {
+        // Scan import: merge into the current map, preserving curation.
+        const docs: ScanDoc[] = [];
+        for (const f of yamlFiles) docs.push(...parseScanDocs(await f.text(), f.name));
+        loadFromProject(mergeScan(toProject(), assembleProject(docs)));
+        notify(`Imported ${docs.filter(isRepoDoc).length} scanned components.`);
+      } else {
+        // Project import: replaces the whole document.
+        loadFromProject(parseImportedProject(await files[0].text()));
+      }
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'Could not import that file.');
     }
   };
 
@@ -81,11 +93,12 @@ export function Toolbar() {
       <input
         ref={fileInput}
         type="file"
-        accept="application/json,.json"
+        accept="application/json,.json,.yaml,.yml"
+        multiple
         className="hidden"
         onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) onImport(file);
+          const files = Array.from(e.target.files ?? []);
+          if (files.length > 0) onImport(files);
           e.target.value = '';
         }}
       />

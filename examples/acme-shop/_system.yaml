@@ -1,0 +1,3 @@
+# Names the whole map. Optional — without it the current project name stands.
+octopus: 1
+system: ACME Shop

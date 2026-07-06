@@ -46,6 +46,8 @@ export interface ArchEdge {
   target: string;
   label?: string;
   kind?: EdgeKind;
+  /** Provenance and import metadata (e.g. `{ source: 'scan' }`). */
+  meta?: Record<string, unknown>;
 }
 
 export interface ArchDocument {

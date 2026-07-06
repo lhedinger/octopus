@@ -1,0 +1,17 @@
+octopus: 1
+repo: orders
+name: Orders
+kind: microservice
+description: Carts, checkout, order lifecycle
+context: commerce
+storage:
+  - kind: database
+    name: orders-db
+dependencies:
+  - repo: catalog
+    label: SKU lookup
+  - repo: payments
+    kind: async
+    label: order.placed
+build: [lint, unit tests, docker image]
+deploy: [staging, production]

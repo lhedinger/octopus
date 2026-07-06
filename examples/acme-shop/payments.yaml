@@ -1,0 +1,34 @@
+octopus: 1
+repo: payments
+name: Payments
+kind: microservice
+description: Charges cards and settles invoices
+context: billing
+storage:
+  - kind: database
+    name: payments-db
+  - kind: cache
+    name: idempotency-cache
+dependencies:
+  - repo: notifications
+    kind: async
+    label: payment.settled
+behavior:
+  blocks:
+    - { name: POST /charge, kind: trigger }
+    - { name: Validate request, kind: rule }
+    - { name: Charge provider, kind: step }
+    - { name: Charged?, kind: decision }
+    - { name: payment.settled, kind: event }
+    - { name: Receipt stored, kind: outcome }
+    - { name: Charge failed, kind: outcome }
+  flow:
+    - [POST /charge, Validate request]
+    - [Validate request, Charge provider]
+    - [Charge provider, Charged?]
+    - { from: Charged?, to: payment.settled, label: yes }
+    - { from: Charged?, to: Charge failed, label: no }
+    - [payment.settled, Receipt stored]
+build: [lint, unit tests, contract tests, docker image]
+test: [unit, contract, e2e smoke]
+deploy: [staging, production (canary)]
