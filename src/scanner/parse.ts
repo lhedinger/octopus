@@ -6,10 +6,13 @@ import {
   SCAN_FORMAT_VERSION,
   SCAN_STORAGE_KINDS,
   type RepoDoc,
+  type ScanBuildStatus,
   type ScanDoc,
   type ScanFlowEdge,
   type SystemDoc,
 } from './format';
+
+const BUILD_STATUSES = ['passing', 'failing', 'unknown'] as const satisfies readonly ScanBuildStatus[];
 
 export class ScanFormatError extends Error {}
 
@@ -98,9 +101,37 @@ function parseRepoDoc(raw: Record<string, unknown>, where: string): RepoDoc {
     };
   }
 
-  if (raw.build !== undefined) doc.build = asStringList(raw.build, `${where}.build`);
-  if (raw.test !== undefined) doc.test = asStringList(raw.test, `${where}.test`);
-  if (raw.deploy !== undefined) doc.deploy = asStringList(raw.deploy, `${where}.deploy`);
+  // A plain string list is shorthand: items for build/test, environments for deploy.
+  if (raw.build !== undefined) {
+    if (Array.isArray(raw.build)) doc.build = { items: asStringList(raw.build, `${where}.build`) };
+    else if (isRecord(raw.build)) {
+      doc.build = {
+        status: raw.build.status !== undefined ? oneOf(raw.build.status, BUILD_STATUSES, `${where}.build.status`) : undefined,
+        items: raw.build.items !== undefined ? asStringList(raw.build.items, `${where}.build.items`) : undefined,
+      };
+    } else fail(`${where}.build`, 'must be a list of items or { status?, items? }');
+  }
+  if (raw.test !== undefined) {
+    if (Array.isArray(raw.test)) doc.test = { items: asStringList(raw.test, `${where}.test`) };
+    else if (isRecord(raw.test)) {
+      const coverage = raw.test.coverage;
+      if (coverage !== undefined && (typeof coverage !== 'number' || coverage < 0 || coverage > 100)) {
+        fail(`${where}.test.coverage`, 'must be a number between 0 and 100');
+      }
+      doc.test = {
+        coverage: coverage as number | undefined,
+        items: raw.test.items !== undefined ? asStringList(raw.test.items, `${where}.test.items`) : undefined,
+      };
+    } else fail(`${where}.test`, 'must be a list of items or { coverage?, items? }');
+  }
+  if (raw.deploy !== undefined) {
+    if (Array.isArray(raw.deploy)) doc.deploy = { environments: asStringList(raw.deploy, `${where}.deploy`) };
+    else if (isRecord(raw.deploy)) {
+      doc.deploy = {
+        environments: raw.deploy.environments !== undefined ? asStringList(raw.deploy.environments, `${where}.deploy.environments`) : undefined,
+      };
+    } else fail(`${where}.deploy`, 'must be a list of environments or { environments? }');
+  }
   return doc;
 }
 

@@ -41,22 +41,14 @@ function computeRanks(repos: string[], callersOf: Map<string, string[]>): Map<st
   return memo;
 }
 
-function facetDescription(items: string[] | undefined): string | undefined {
-  return items && items.length > 0 ? items.map((i) => `• ${i}`).join('\n') : undefined;
-}
-
-/** Build the interior levels (facets + behavior) for one scanned repo. */
+/** Build the interior level (behavior facet + scanned flow) for one repo. */
 function buildInterior(doc: RepoDoc, levels: Record<string, Level>): void {
+  // Build/test/deploy live on the tile as badges (meta.facets), not as
+  // interiors; only microservices (and anything with a scanned flow) get the
+  // spatial Behavior facet inside.
+  if ((doc.kind ?? 'microservice') !== 'microservice' && !doc.behavior) return;
   const hostId = repoNodeId(doc.repo);
-  const facets = withFacets({ nodes: [], edges: [] }, (kind) => facetNodeId(doc.repo, kind), scanMeta(doc.repo));
-
-  for (const facet of facets.nodes) {
-    const summary = facetDescription(
-      facet.kind === 'build' ? doc.build : facet.kind === 'test' ? doc.test : facet.kind === 'deploy' ? doc.deploy : undefined,
-    );
-    if (summary) facet.description = summary;
-  }
-  levels[hostId] = facets;
+  levels[hostId] = withFacets({ nodes: [], edges: [] }, (kind) => facetNodeId(doc.repo, kind), scanMeta(doc.repo));
 
   if (!doc.behavior) return;
   const behaviorFacetId = facetNodeId(doc.repo, 'behavior');
@@ -158,13 +150,17 @@ export function assembleProject(docs: ScanDoc[]): ProjectDocument {
         });
         return;
       }
+      const facets =
+        doc.build || doc.test || doc.deploy
+          ? { facets: { build: doc.build, test: doc.test, deploy: doc.deploy } }
+          : undefined;
       nodes.push({
         id,
         kind: doc.kind ?? 'microservice',
         label: doc.name ?? doc.repo,
         description: doc.description,
         position,
-        meta: scanMeta(doc.repo, doc.context ? { context: doc.context } : undefined),
+        meta: scanMeta(doc.repo, { ...(doc.context ? { context: doc.context } : undefined), ...facets }),
       });
       (doc.storage ?? []).forEach((s, slot) => {
         const name = s.name ?? defaultLabel(s.kind);

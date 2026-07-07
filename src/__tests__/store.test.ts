@@ -88,19 +88,21 @@ describe('useArchStore', () => {
     expect(store().notice).toBeTruthy();
   });
 
-  it('seeds a microservice interior with the four fixed facets', () => {
+  it('seeds a microservice interior with the fixed Behavior facet', () => {
     store().addNode('microservice', { x: 0, y: 0 });
     const hostId = store().nodes[0].id;
     store().enter(hostId);
 
+    // Build/test/deploy live on the tile as badges — only the spatial
+    // Behavior facet earns an interior presence.
     const kinds = store().nodes.map((n) => n.data.kind).sort();
-    expect(kinds).toEqual(['behavior', 'build', 'deploy', 'test']);
+    expect(kinds).toEqual(['behavior']);
     expect(store().nodes.every((n) => n.data.fixed)).toBe(true);
 
     // Facets can't be deleted.
     const facet = store().nodes[0];
     store().deleteNode(facet.id);
-    expect(store().nodes).toHaveLength(4);
+    expect(store().nodes).toHaveLength(1);
   });
 
   it('does not seed facets inside a non-microservice', () => {

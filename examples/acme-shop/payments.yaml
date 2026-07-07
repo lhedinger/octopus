@@ -29,6 +29,10 @@ behavior:
     - { from: Charged?, to: payment.settled, label: yes }
     - { from: Charged?, to: Charge failed, label: no }
     - [payment.settled, Receipt stored]
-build: [lint, unit tests, contract tests, docker image]
-test: [unit, contract, e2e smoke]
+build:
+  status: passing
+  items: [lint, unit tests, contract tests, docker image]
+test:
+  coverage: 87
+  items: [unit, contract, e2e smoke]
 deploy: [staging, production (canary)]

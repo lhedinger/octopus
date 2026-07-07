@@ -5,6 +5,7 @@
  */
 export { parseScanDocs, ScanFormatError } from './parse';
 export { assembleProject, repoNodeId, UNNAMED_SYSTEM } from './assemble';
-export { mergeScan, pruneOrphanLevels } from './merge';
+export { mergeScan } from './merge';
+export { pruneOrphanLevels } from '../model/project';
 export { isRepoDoc, SCAN_FORMAT_VERSION } from './format';
 export type { RepoDoc, ScanDoc, SystemDoc } from './format';

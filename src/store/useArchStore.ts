@@ -11,7 +11,7 @@ import type { ArchNode, ComponentKind, EdgeKind, Level, ProjectDocument } from '
 import { ROOT_PATH } from '../model/types';
 import { defaultLabel } from '../model/palette';
 import { canConnect, isBehavior } from '../model/relationships';
-import { withFacets } from '../model/facets';
+import { withFacets, type Lens } from '../model/facets';
 import { TILE_SIZE, snapPoint } from '../model/grid';
 import {
   edgeToFlow,
@@ -44,6 +44,8 @@ export interface ArchState {
   connectSource?: string;
   /** Transient message shown when an action is blocked by a rule. */
   notice?: string;
+  /** Active map overlay tinting codebase tiles by one facet metric. */
+  lens: Lens;
 
   onNodesChange: (changes: NodeChange<FlowNode>[]) => void;
   onEdgesChange: (changes: EdgeChange<FlowEdge>[]) => void;
@@ -62,6 +64,7 @@ export interface ArchState {
   clearNotice: () => void;
   /** Show a transient toast (also used for rule-blocked actions). */
   notify: (message: string) => void;
+  setLens: (lens: Lens) => void;
 
   /** Drill into a component, opening (or creating) its inner canvas. */
   enter: (nodeId: string) => void;
@@ -113,6 +116,7 @@ export const useArchStore = create<ArchState>((set, get) => {
     nodes: root.nodes,
     edges: root.edges,
     tapConnect: false,
+    lens: 'none',
 
     onNodesChange: (changes) => set({ nodes: applyNodeChanges(changes, get().nodes) }),
     onEdgesChange: (changes) => set({ edges: applyEdgeChanges(changes, get().edges) }),
@@ -232,6 +236,8 @@ export const useArchStore = create<ArchState>((set, get) => {
     clearNotice: () => set({ notice: undefined }),
 
     notify: (message) => set({ notice: message }),
+
+    setLens: (lens) => set({ lens }),
 
     enter: (nodeId) => {
       const { path } = get();

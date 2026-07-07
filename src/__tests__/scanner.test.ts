@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { assembleProject, mergeScan, parseScanDocs, repoNodeId } from '../scanner';
+import { migrateProject } from '../store/persistence';
 import { ROOT_PATH } from '../model/types';
 
 const PAYMENTS = `
@@ -25,6 +26,10 @@ behavior:
     - [POST /charge, Charged?]
     - { from: Charged?, to: Done, label: yes }
 build: [lint, docker image]
+test:
+  coverage: 87
+  items: [unit, contract]
+deploy: [staging, production]
 `;
 
 const scan = (...texts: string[]) => assembleProject(texts.flatMap((t) => parseScanDocs(t)));
@@ -41,6 +46,8 @@ describe('scanner', () => {
     expect(() => parseScanDocs('octopus: 1\nkind: microservice', 'x.yaml')).toThrow(/x\.yaml.*repo.*required/);
     expect(() => parseScanDocs('octopus: 2\nrepo: a')).toThrow(/format version/);
     expect(() => parseScanDocs('octopus: 1\nrepo: a\nkind: pizza')).toThrow(/one of/);
+    expect(() => parseScanDocs('octopus: 1\nrepo: a\ntest: { coverage: 150 }')).toThrow(/between 0 and 100/);
+    expect(() => parseScanDocs('octopus: 1\nrepo: a\nbuild: { status: green }')).toThrow(/one of/);
   });
 
   it('assembles repos into a named project with deterministic ids', () => {
@@ -60,15 +67,21 @@ describe('scanner', () => {
     expect(project.levels[ROOT_PATH].edges[0]).toMatchObject({ kind: 'async', label: 'payment.settled' });
   });
 
-  it('attaches storage and pre-builds facet + behavior interiors', () => {
+  it('attaches storage, carries facet facts on the node, and builds the behavior interior', () => {
     const project = scan(PAYMENTS);
     const root = project.levels[ROOT_PATH];
     const db = root.nodes.find((n) => n.kind === 'database')!;
     expect(db.parentId).toBe(repoNodeId('payments'));
 
+    // Build/test/deploy are tile facts (badges/lenses), not interior tiles.
+    const service = root.nodes.find((n) => n.id === repoNodeId('payments'))!;
+    const facets = service.meta?.facets as { build?: { items?: string[] }; test?: { coverage?: number }; deploy?: { environments?: string[] } };
+    expect(facets.build?.items).toContain('lint');
+    expect(facets.test?.coverage).toBe(87);
+    expect(facets.deploy?.environments).toEqual(['staging', 'production']);
+
     const interior = project.levels[repoNodeId('payments')];
-    expect(interior.nodes.map((n) => n.kind).sort()).toEqual(['behavior', 'build', 'deploy', 'test']);
-    expect(interior.nodes.find((n) => n.kind === 'build')?.description).toContain('lint');
+    expect(interior.nodes.map((n) => n.kind)).toEqual(['behavior']);
 
     const behaviorFacet = interior.nodes.find((n) => n.kind === 'behavior')!;
     const flow = project.levels[`${repoNodeId('payments')}/${behaviorFacet.id}`];
@@ -76,6 +89,31 @@ describe('scanner', () => {
     expect(flow.edges).toHaveLength(2);
     expect(flow.edges.every((e) => e.kind === 'flow')).toBe(true);
     expect(flow.edges.find((e) => e.label === 'yes')).toBeTruthy();
+  });
+
+  it('migrates legacy projects: retired facet tiles are stripped and their levels pruned', () => {
+    const legacy = {
+      version: 2 as const,
+      id: 'p1',
+      name: 'Legacy',
+      levels: {
+        '': { nodes: [{ id: 'ms1', kind: 'microservice' as const, label: 'Svc', position: { x: 0, y: 0 } }], edges: [] },
+        ms1: {
+          nodes: [
+            { id: 'f-test', kind: 'test' as const, label: 'Test', position: { x: 0, y: 0 }, meta: { fixed: true } },
+            { id: 'f-build', kind: 'build' as const, label: 'Build', position: { x: 0, y: 0 }, meta: { fixed: true } },
+            { id: 'f-behavior', kind: 'behavior' as const, label: 'Behavior', position: { x: 0, y: 0 }, meta: { fixed: true } },
+          ],
+          edges: [],
+        },
+        'ms1/f-test': { nodes: [{ id: 'x', kind: 'service' as const, label: 'X', position: { x: 0, y: 0 } }], edges: [] },
+        'ms1/f-behavior': { nodes: [{ id: 'b', kind: 'trigger' as const, label: 'Go', position: { x: 0, y: 0 } }], edges: [] },
+      },
+    };
+    const migrated = migrateProject(legacy);
+    expect(migrated.levels['ms1'].nodes.map((n) => n.kind)).toEqual(['behavior']);
+    expect(migrated.levels['ms1/f-test']).toBeUndefined(); // anchored to a stripped tile
+    expect(migrated.levels['ms1/f-behavior'].nodes).toHaveLength(1); // spatial facet survives
   });
 
   it('lays out callers to the left of what they call', () => {

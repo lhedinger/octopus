@@ -7,16 +7,82 @@ import { useArchStore } from '../../store/useArchStore';
 import { canConnect } from '../../model/relationships';
 import { STORAGE_PALETTE } from '../../model/palette';
 import { TILE_SIZE, TILE_PADDING } from '../../model/grid';
+import { BADGE_KINDS, buildColor, coverageColor, deployColor, facetInfo, lensMetric } from '../../model/facets';
 
 const LABEL_HEIGHT = 20;
 const iconBtn = 'flex h-8 w-8 items-center justify-center rounded-lg text-base text-slate-200 transition hover:bg-white/10';
 
+/** RTS-style status chips on the tile: build / test / deploy at a glance. */
+function FacetBadges({ meta, onOpen }: { meta?: Record<string, unknown>; onOpen: () => void }) {
+  const f = facetInfo(meta);
+  const chips = [
+    { icon: '🔨', title: 'Build', color: buildColor(f.build?.status) },
+    { icon: '🧪', title: 'Test', color: coverageColor(f.test?.coverage) },
+    { icon: '🚀', title: 'Deploy', color: deployColor(f.deploy?.environments) },
+  ];
+  return (
+    <div className="nodrag absolute -top-2 left-1/2 z-10 flex -translate-x-1/2 gap-0.5">
+      {chips.map((c) => (
+        <button
+          key={c.title}
+          title={c.title}
+          aria-label={`${c.title} status`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpen();
+          }}
+          style={{ backgroundColor: c.color }}
+          className="flex h-4 w-4 items-center justify-center rounded-full text-[8px] leading-none shadow ring-1 ring-black/40 transition hover:scale-125"
+        >
+          {c.icon}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Anchored card with the details behind the badges. */
+function FacetFactsCard({ meta, onClose }: { meta?: Record<string, unknown>; onClose: () => void }) {
+  const f = facetInfo(meta);
+  const sections: { title: string; headline: string; items?: string[] }[] = [
+    { title: '🔨 Build', headline: f.build?.status ?? 'no data', items: f.build?.items },
+    { title: '🧪 Test', headline: f.test?.coverage !== undefined ? `${f.test.coverage}% coverage` : 'no data', items: f.test?.items },
+    { title: '🚀 Deploy', headline: f.deploy?.environments?.length ? f.deploy.environments.join(' · ') : 'no data' },
+  ];
+  return (
+    <div className="nodrag w-56 rounded-xl border border-white/10 bg-panel/95 p-2 text-left shadow-xl backdrop-blur">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-accent">Component facts</span>
+        <button onClick={onClose} aria-label="Close facts" className="rounded px-1 text-slate-400 hover:bg-white/10 hover:text-slate-100">✕</button>
+      </div>
+      <div className="space-y-1.5">
+        {sections.map((s) => (
+          <div key={s.title}>
+            <div className="flex items-baseline justify-between text-xs text-slate-200">
+              <span>{s.title}</span>
+              <span className="font-semibold">{s.headline}</span>
+            </div>
+            {s.items && s.items.length > 0 && (
+              <ul className="mt-0.5 space-y-0.5 pl-4 text-[11px] leading-tight text-slate-400">
+                {s.items.map((i) => (
+                  <li key={i} className="list-disc">{i}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ComponentNode({ id, data }: NodeProps<FlowNode>) {
-  const { kind, label, description, attached, fixed } = data;
+  const { kind, label, description, attached, fixed, meta } = data;
   const tapConnect = useArchStore((s) => s.tapConnect);
   const connectSource = useArchStore((s) => s.connectSource);
   const sourceKind = useArchStore((s) => s.nodes.find((n) => n.id === s.connectSource)?.data.kind);
   const selected = useArchStore((s) => s.selectedNodeId === id);
+  const lens = useArchStore((s) => s.lens);
   const updateNodeData = useArchStore((s) => s.updateNodeData);
   const addStorage = useArchStore((s) => s.addStorage);
   const deleteNode = useArchStore((s) => s.deleteNode);
@@ -24,10 +90,16 @@ export function ComponentNode({ id, data }: NodeProps<FlowNode>) {
 
   const [renaming, setRenaming] = useState(false);
   const [panel, setPanel] = useState<'none' | 'storage' | 'details'>('none');
+  const [factsOpen, setFactsOpen] = useState(false);
 
   const isSource = connectSource === id;
   const isValidTarget = tapConnect && !!connectSource && !isSource && !!sourceKind && canConnect(sourceKind, kind).ok;
   const showMenu = selected && !tapConnect;
+
+  // Build/test/deploy state applies to codebase tiles (not storage/facets).
+  const hasBadges = !attached && !fixed && BADGE_KINDS.includes(kind);
+  const metric = hasBadges ? lensMetric(lens, meta) : undefined;
+  const lensDimmed = lens !== 'none' && !hasBadges;
 
   // Attachments render at half a tile; free components fill a whole tile.
   const tile = attached ? TILE_SIZE / 2 : TILE_SIZE;
@@ -45,9 +117,33 @@ export function ComponentNode({ id, data }: NodeProps<FlowNode>) {
         isSource ? 'ring-4 ring-accent/60' : '',
         isValidTarget ? 'ring-2 ring-emerald-400/50' : '',
         tapConnect && !attached ? 'cursor-crosshair' : '',
+        lensDimmed ? 'opacity-30' : '',
       ].join(' ')}
     >
       {attached && <span className="absolute -top-2.5 left-1/2 h-2.5 w-px -translate-x-1/2 bg-white/25" />}
+
+      {hasBadges && <FacetBadges meta={meta} onOpen={() => setFactsOpen((v) => !v)} />}
+
+      {/* Active lens: colour ring + the metric stamped on the tile. */}
+      {metric && (
+        <>
+          <span
+            aria-hidden
+            style={{ boxShadow: `0 0 0 3px ${metric.color}` }}
+            className="pointer-events-none absolute inset-0 rounded-xl"
+          />
+          <span
+            style={{ backgroundColor: metric.color }}
+            className="pointer-events-none absolute -bottom-2 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full px-1.5 py-px text-[10px] font-bold leading-tight text-panel shadow"
+          >
+            {metric.label}
+          </span>
+        </>
+      )}
+
+      <NodeToolbar isVisible={hasBadges && factsOpen} position={Position.Bottom} offset={10}>
+        <FacetFactsCard meta={meta} onClose={() => setFactsOpen(false)} />
+      </NodeToolbar>
 
       <NodeToolbar isVisible={showMenu} position={Position.Top} offset={10}>
         <div className="nodrag flex flex-col gap-1 rounded-xl border border-white/10 bg-panel/90 p-1 shadow-xl backdrop-blur">

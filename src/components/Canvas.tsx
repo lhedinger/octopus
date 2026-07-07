@@ -14,6 +14,7 @@ import '@xyflow/react/dist/style.css';
 import { useArchStore } from '../store/useArchStore';
 import { canConnect } from '../model/relationships';
 import { TILE_SIZE } from '../model/grid';
+import { BADGE_KINDS, lensMetric } from '../model/facets';
 import type { FlowNode } from '../model/mapping';
 import { ComponentNode } from './nodes/ComponentNode';
 
@@ -62,6 +63,7 @@ export function Canvas() {
   );
   const edges = useArchStore((s) => s.edges);
   const depth = useArchStore((s) => s.path.length);
+  const lens = useArchStore((s) => s.lens);
   const onNodesChange = useArchStore((s) => s.onNodesChange);
   const onEdgesChange = useArchStore((s) => s.onEdgesChange);
   const onConnect = useArchStore((s) => s.onConnect);
@@ -355,7 +357,11 @@ export function Canvas() {
           }`}
           bgColor="#0f172a"
           maskColor="rgba(15,23,42,0.6)"
-          nodeColor="#38bdf8"
+          // Under an active lens, the minimap mirrors the tile tinting.
+          nodeColor={(n) =>
+            (BADGE_KINDS.includes((n as FlowNode).data?.kind) ? lensMetric(lens, (n as FlowNode).data?.meta)?.color : undefined) ??
+            '#38bdf8'
+          }
           nodeStrokeColor="#1e293b"
         />
       </ReactFlow>

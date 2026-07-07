@@ -50,14 +50,20 @@ behavior:               # the service's runtime flow (Behavior facet interior)
     - [POST /charge, Charged?]                # short form: [from, to]
     - { from: Charged?, to: Done, label: yes } # labelled branch
 
-build:  [lint, unit tests, docker image]   # shown on the Build facet
-test:   [unit, contract]                   # shown on the Test facet
-deploy: [staging, production]              # shown on the Deploy facet
+build:                  # tile badge + Build lens
+  status: passing       # passing | failing | unknown
+  items: [lint, unit tests, docker image]
+test:                   # tile badge + Test lens
+  coverage: 87          # percent, 0–100
+  items: [unit, contract]
+deploy: [staging, production]   # tile badge + Deploy lens (list = environments)
 ```
 
-`build` / `test` / `deploy` are plain summaries for now — they appear as the
-facet's description when you drill in. They'll become structured vocabularies
-(stages, suites, environments) in a later format version.
+`build` / `test` / `deploy` appear as **badges on the component tile** (tap one
+for the details card) and drive the **map lenses** — the toggles on the right
+edge that tint every codebase tile by build status, test coverage, or
+environment count. A plain string list is accepted as shorthand: items for
+build/test, environments for deploy.
 
 ## System document
 

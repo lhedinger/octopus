@@ -49,6 +49,8 @@ export interface ScanBehaviorBlock {
 /** `[from, to]` short form or `{ from, to, label }` for labelled branches. */
 export type ScanFlowEdge = [string, string] | { from: string; to: string; label?: string };
 
+export type ScanBuildStatus = 'passing' | 'failing' | 'unknown';
+
 /** One scanned repo/service. */
 export interface RepoDoc {
   octopus: number;
@@ -62,10 +64,14 @@ export interface RepoDoc {
   storage?: ScanStorage[];
   dependencies?: ScanDependency[];
   behavior?: { blocks: ScanBehaviorBlock[]; flow?: ScanFlowEdge[] };
-  /** Summaries shown on the matching facet until those layers get vocabularies. */
-  build?: string[];
-  test?: string[];
-  deploy?: string[];
+  /**
+   * Build/test/deploy state, surfaced as tile badges and map lenses. YAML
+   * accepts a plain string list as shorthand (items / environments); the
+   * parser normalizes to the structured form.
+   */
+  build?: { status?: ScanBuildStatus; items?: string[] };
+  test?: { coverage?: number; items?: string[] };
+  deploy?: { environments?: string[] };
 }
 
 /** Optional system-level document naming the whole map. */

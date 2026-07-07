@@ -8,3 +8,8 @@ dependencies:
   - repo: catalog
   - repo: orders
   - repo: payments
+# Plain-list shorthand still works: items only, no status/coverage.
+build: [lint, docker image]
+test:
+  coverage: 55
+deploy: [staging, production]

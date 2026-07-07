@@ -7,3 +7,10 @@ context: experience
 dependencies:
   - repo: gateway
     label: REST
+build:
+  status: passing
+  items: [lint, type check, bundle]
+test:
+  coverage: 78
+  items: [unit, visual regression]
+deploy: [preview, production]

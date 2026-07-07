@@ -8,5 +8,10 @@ dependencies:
   # Not scanned — appears on the map as an external-system stub.
   - repo: ses
     label: SMTP API
-build: [lint, docker image]
+build:
+  status: passing
+  items: [lint, docker image]
+test:
+  coverage: 73
+  items: [unit]
 deploy: [staging, production]
