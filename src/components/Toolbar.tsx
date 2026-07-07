@@ -3,6 +3,13 @@ import { useArchStore } from '../store/useArchStore';
 import { exportToFile, parseImportedProject } from '../store/persistence';
 import { assembleProject, isRepoDoc, mergeScan, parseScanDocs, type ScanDoc } from '../scanner';
 
+// The demo system ships with the app: the scan YAML is inlined at build time.
+const EXAMPLE_FILES = import.meta.glob('../../examples/acme-shop/*.yaml', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
+
 export function Toolbar() {
   const fileInput = useRef<HTMLInputElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -36,6 +43,16 @@ export function Toolbar() {
   const run = (fn: () => void) => () => {
     setMenuOpen(false);
     fn();
+  };
+
+  const loadExample = () => {
+    const hasContent = Object.values(toProject().levels).some((l) => l.nodes.length > 0);
+    if (hasContent && !confirm('Replace your current canvas with the example project?')) return;
+    const docs = Object.entries(EXAMPLE_FILES).flatMap(([path, text]) =>
+      parseScanDocs(text, path.split('/').pop()),
+    );
+    loadFromProject(assembleProject(docs));
+    notify('Example loaded — zoom into Payments to explore its layers.');
   };
 
   return (
@@ -75,6 +92,7 @@ export function Toolbar() {
           <div className="absolute left-3 top-14 z-30 w-44 overflow-hidden rounded-xl border border-white/10 bg-panel/95 py-1 text-sm shadow-xl backdrop-blur">
             {[
               { label: 'New architecture', fn: () => confirm('Start a new, empty architecture?') && newProject() },
+              { label: 'Load example', fn: loadExample },
               { label: 'Import…', fn: () => fileInput.current?.click() },
               { label: 'Export', fn: () => exportToFile(toProject()) },
             ].map((item) => (

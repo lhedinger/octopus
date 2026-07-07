@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { assembleProject, mergeScan, parseScanDocs, repoNodeId } from '../scanner';
 import { ROOT_PATH } from '../model/types';
@@ -129,5 +131,19 @@ describe('scanner', () => {
     expect(interior).toBeDefined();
     const behaviorFacet = interior.nodes.find((n) => n.kind === 'behavior')!;
     expect(merged.levels[`${repoNodeId('payments')}/${behaviorFacet.id}`].nodes.length).toBeGreaterThan(0);
+  });
+
+  it('keeps the shipped example valid (it backs the Load-example menu item)', () => {
+    const dir = join(__dirname, '../../examples/acme-shop');
+    const docs = readdirSync(dir)
+      .filter((f) => f.endsWith('.yaml'))
+      .flatMap((f) => parseScanDocs(readFileSync(join(dir, f), 'utf8'), f));
+    const project = assembleProject(docs);
+    expect(project.name).toBe('ACME Shop');
+    expect(project.levels[ROOT_PATH].nodes.filter((n) => !n.parentId).length).toBeGreaterThanOrEqual(7);
+    // The payments behavior flow is the drill-down showcase — keep it present.
+    const interior = project.levels[repoNodeId('payments')];
+    const behaviorFacet = interior.nodes.find((n) => n.kind === 'behavior')!;
+    expect(project.levels[`${repoNodeId('payments')}/${behaviorFacet.id}`].edges.length).toBeGreaterThan(0);
   });
 });
