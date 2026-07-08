@@ -10,6 +10,12 @@ storage:
   - kind: cache
     name: idempotency-cache
 dependencies:
+  # Not scanned — appears on the map as an external-system stub.
+  - repo: stripe
+    label: charge API
+  - repo: orders
+    kind: async
+    label: payment.settled
   - repo: notifications
     kind: async
     label: payment.settled

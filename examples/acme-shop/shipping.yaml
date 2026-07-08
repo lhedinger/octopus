@@ -1,0 +1,22 @@
+octopus: 1
+repo: shipping
+name: Shipping
+kind: microservice
+description: Fulfilment and carrier hand-off
+context: fulfillment
+storage:
+  - kind: database
+    name: shipping-db
+dependencies:
+  - repo: carrier-api
+    label: book pickup
+  - repo: notifications
+    kind: async
+    label: shipment.dispatched
+build:
+  status: passing
+  items: [lint, unit tests, docker image]
+test:
+  coverage: 66
+  items: [unit, contract]
+deploy: [staging, production]

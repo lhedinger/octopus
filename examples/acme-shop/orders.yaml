@@ -2,17 +2,38 @@ octopus: 1
 repo: orders
 name: Orders
 kind: microservice
-description: Carts, checkout, order lifecycle
-context: commerce
+description: Checkout and order lifecycle
+context: purchasing
 storage:
   - kind: database
     name: orders-db
 dependencies:
-  - repo: catalog
-    label: SKU lookup
+  - repo: cart
+    label: checkout snapshot
+  - repo: inventory
+    label: reserve stock
   - repo: payments
     kind: async
     label: order.placed
+  - repo: shipping
+    kind: async
+    label: order.paid
+behavior:
+  blocks:
+    - { name: POST /checkout, kind: trigger }
+    - { name: Validate cart, kind: rule }
+    - { name: Reserve stock, kind: step }
+    - { name: Payment settled?, kind: decision }
+    - { name: order.confirmed, kind: event }
+    - { name: Confirmed, kind: outcome }
+    - { name: Rejected, kind: outcome }
+  flow:
+    - [POST /checkout, Validate cart]
+    - [Validate cart, Reserve stock]
+    - [Reserve stock, Payment settled?]
+    - { from: Payment settled?, to: order.confirmed, label: yes }
+    - { from: Payment settled?, to: Rejected, label: no }
+    - [order.confirmed, Confirmed]
 build:
   status: failing
   items: [lint, unit tests, docker image]

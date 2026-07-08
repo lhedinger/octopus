@@ -5,9 +5,12 @@ kind: apiGateway
 description: Routing, auth, rate limiting
 context: experience
 dependencies:
+  - repo: identity
+    label: auth
   - repo: catalog
+  - repo: search
+  - repo: cart
   - repo: orders
-  - repo: payments
 # Plain-list shorthand still works: items only, no status/coverage.
 build: [lint, docker image]
 test:

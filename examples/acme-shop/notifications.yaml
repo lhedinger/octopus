@@ -5,9 +5,11 @@ kind: microservice
 description: Email and push receipts
 context: communication
 dependencies:
-  # Not scanned — appears on the map as an external-system stub.
+  # Not scanned — appear on the map as external-system stubs.
   - repo: ses
     label: SMTP API
+  - repo: fcm
+    label: push API
 build:
   status: passing
   items: [lint, docker image]

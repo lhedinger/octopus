@@ -1,0 +1,16 @@
+octopus: 1
+repo: search
+name: Search
+kind: microservice
+description: Product search & ranking
+context: discovery
+storage:
+  - kind: datastore
+    name: search-index
+build:
+  status: passing
+  items: [lint, unit tests, docker image]
+test:
+  coverage: 58
+  items: [unit, relevance suite]
+deploy: [staging, production]

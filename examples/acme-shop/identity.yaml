@@ -1,0 +1,22 @@
+octopus: 1
+repo: identity
+name: Identity
+kind: microservice
+description: Sign-in, tokens, profiles
+context: identity
+storage:
+  - kind: database
+    name: identity-db
+  - kind: cache
+    name: session-cache
+dependencies:
+  - repo: notifications
+    kind: async
+    label: user.registered
+build:
+  status: passing
+  items: [lint, unit tests, docker image]
+test:
+  coverage: 91
+  items: [unit, contract, security suite]
+deploy: [staging, production]

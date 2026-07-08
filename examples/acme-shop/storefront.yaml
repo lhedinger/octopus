@@ -1,8 +1,8 @@
 octopus: 1
 repo: storefront
-name: Storefront
+name: Web Storefront
 kind: client
-description: Web and mobile shop UI
+description: Server-rendered web shop
 context: experience
 dependencies:
   - repo: gateway

@@ -1,0 +1,16 @@
+octopus: 1
+repo: mobile-app
+name: Mobile App
+kind: client
+description: iOS & Android shopping app
+context: experience
+dependencies:
+  - repo: gateway
+    label: GraphQL
+build:
+  status: passing
+  items: [lint, unit tests, app bundles]
+test:
+  coverage: 62
+  items: [unit, snapshot]
+deploy: [beta, app stores]
