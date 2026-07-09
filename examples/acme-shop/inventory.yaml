@@ -7,6 +7,12 @@ context: fulfillment
 storage:
   - kind: database
     name: inventory-db
+modules:
+  - name: Stock
+    description: On-hand quantities per warehouse
+  - name: Reservations
+    description: Holds during checkout
+    dependencies: [Stock]
 build:
   status: passing
   items: [lint, unit tests, docker image]

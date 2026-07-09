@@ -18,22 +18,32 @@ dependencies:
   - repo: shipping
     kind: async
     label: order.paid
-behavior:
-  blocks:
-    - { name: POST /checkout, kind: trigger }
-    - { name: Validate cart, kind: rule }
-    - { name: Reserve stock, kind: step }
-    - { name: Payment settled?, kind: decision }
-    - { name: order.confirmed, kind: event }
-    - { name: Confirmed, kind: outcome }
-    - { name: Rejected, kind: outcome }
-  flow:
-    - [POST /checkout, Validate cart]
-    - [Validate cart, Reserve stock]
-    - [Reserve stock, Payment settled?]
-    - { from: Payment settled?, to: order.confirmed, label: yes }
-    - { from: Payment settled?, to: Rejected, label: no }
-    - [order.confirmed, Confirmed]
+modules:
+  - name: Checkout
+    description: The order placement saga
+    dependencies:
+      - { module: Order history, label: writes }
+    behavior:
+      blocks:
+        - { name: POST /checkout, kind: trigger }
+        - { name: Validate cart, kind: rule }
+        - { name: Reserve stock, kind: step }
+        - { name: Payment settled?, kind: decision }
+        - { name: order.confirmed, kind: event }
+        - { name: Confirmed, kind: outcome }
+        - { name: Rejected, kind: outcome }
+      flow:
+        - [POST /checkout, Validate cart]
+        - [Validate cart, Reserve stock]
+        - [Reserve stock, Payment settled?]
+        - { from: Payment settled?, to: order.confirmed, label: yes }
+        - { from: Payment settled?, to: Rejected, label: no }
+        - [order.confirmed, Confirmed]
+  - name: Order history
+    description: Query API for past orders
+  - name: Lifecycle
+    description: State machine and cancellations
+    dependencies: [Order history]
 build:
   status: failing
   items: [lint, unit tests, docker image]

@@ -49,6 +49,16 @@ export interface ScanBehaviorBlock {
 /** `[from, to]` short form or `{ from, to, label }` for labelled branches. */
 export type ScanFlowEdge = [string, string] | { from: string; to: string; label?: string };
 
+/** A grouped subdomain / package inside a repo, shown on the second layer. */
+export interface ScanModule {
+  name: string;
+  description?: string;
+  /** Sibling modules this one depends on; string shorthand = just the name. */
+  dependencies?: (string | { module: string; label?: string })[];
+  /** Optional runtime flow, one drill-down deeper (inside the module). */
+  behavior?: { blocks: ScanBehaviorBlock[]; flow?: ScanFlowEdge[] };
+}
+
 export type ScanBuildStatus = 'passing' | 'failing' | 'unknown';
 
 /** One scanned repo/service. */
@@ -63,7 +73,8 @@ export interface RepoDoc {
   context?: string;
   storage?: ScanStorage[];
   dependencies?: ScanDependency[];
-  behavior?: { blocks: ScanBehaviorBlock[]; flow?: ScanFlowEdge[] };
+  /** The repo's internal subdomains — the component's interior canvas. */
+  modules?: ScanModule[];
   /**
    * Build/test/deploy state, surfaced as tile badges and map lenses. YAML
    * accepts a plain string list as shorthand (items / environments); the

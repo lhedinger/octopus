@@ -11,6 +11,15 @@ dependencies:
   - repo: search
     kind: async
     label: product.updated
+modules:
+  - name: Products
+    description: Catalogue CRUD and categories
+  - name: Pricing
+    description: Price rules and promotions
+    dependencies: [Products]
+  - name: Media
+    description: Product images and assets
+    dependencies: [Products]
 build:
   status: passing
   items: [lint, unit tests, docker image]

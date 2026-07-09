@@ -1,42 +1,3 @@
-import type { ArchNode, ComponentKind, Level } from './types';
-import { defaultLabel } from './palette';
-
-/**
- * Build/test/deploy are *properties* of a component, not spaces — they live on
- * the tile as badges and lenses (see facetInfo below). Behavior is the one
- * facet that's genuinely spatial (a flow of blocks), so it's the only interior
- * facet a microservice seeds.
- */
-export const SEEDED_FACETS: ComponentKind[] = ['behavior'];
-
-/** Centre of the 600px interior world, on the 120px tile grid. */
-const BEHAVIOR_POSITION = { x: 240, y: 240 };
-
-/**
- * Ensure a level has its always-present facets. `idFor` lets callers control
- * identity: the editor uses random UUIDs, the scanner uses deterministic ids
- * so re-scans update rather than duplicate.
- */
-export function withFacets(
-  level: Level,
-  idFor: (kind: ComponentKind) => string = () => crypto.randomUUID(),
-  meta?: Record<string, unknown>,
-): Level {
-  const nodes = [...level.nodes];
-  for (const kind of SEEDED_FACETS) {
-    if (nodes.some((n) => n.kind === kind)) continue;
-    const node: ArchNode = {
-      id: idFor(kind),
-      kind,
-      label: defaultLabel(kind),
-      position: BEHAVIOR_POSITION,
-      meta: { ...meta, fixed: true },
-    };
-    nodes.push(node);
-  }
-  return { nodes, edges: level.edges };
-}
-
 // --- Facet facts: build/test/deploy state carried on the component node ---
 
 export type BuildStatus = 'passing' | 'failing' | 'unknown';
@@ -47,8 +8,8 @@ export interface FacetInfo {
   deploy?: { environments?: string[] };
 }
 
-/** Kinds that represent a codebase, where build/test/deploy state applies. */
-export const BADGE_KINDS: ComponentKind[] = ['service', 'microservice', 'apiGateway', 'client'];
+/** Re-exported for badge/lens consumers; defined with the connection rules. */
+export { BADGE_KINDS } from './relationships';
 
 export function facetInfo(meta?: Record<string, unknown>): FacetInfo {
   return (meta?.facets as FacetInfo) ?? {};

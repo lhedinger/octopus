@@ -7,6 +7,15 @@ context: discovery
 storage:
   - kind: datastore
     name: search-index
+modules:
+  - name: Indexing
+    description: Consumes product.updated events
+  - name: Query API
+    description: Search endpoint
+    dependencies:
+      - { module: Ranking, label: scores with }
+  - name: Ranking
+    description: Relevance and boosts
 build:
   status: passing
   items: [lint, unit tests, docker image]

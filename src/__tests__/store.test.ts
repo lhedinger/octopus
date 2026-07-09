@@ -88,21 +88,22 @@ describe('useArchStore', () => {
     expect(store().notice).toBeTruthy();
   });
 
-  it('seeds a microservice interior with the fixed Behavior facet', () => {
+  it('opens a microservice interior as an empty modules canvas', () => {
     store().addNode('microservice', { x: 0, y: 0 });
     const hostId = store().nodes[0].id;
     store().enter(hostId);
 
-    // Build/test/deploy live on the tile as badges — only the spatial
-    // Behavior facet earns an interior presence.
-    const kinds = store().nodes.map((n) => n.data.kind).sort();
-    expect(kinds).toEqual(['behavior']);
-    expect(store().nodes.every((n) => n.data.fixed)).toBe(true);
+    // Build/test/deploy live on the tile as badges; the interior is for the
+    // component's grouped subdomains/modules — nothing is pre-seeded.
+    expect(store().nodes).toHaveLength(0);
 
-    // Facets can't be deleted.
-    const facet = store().nodes[0];
-    store().deleteNode(facet.id);
-    expect(store().nodes).toHaveLength(1);
+    // Modules wire to each other with directional flow arrows.
+    store().addNode('module', { x: 0, y: 0 });
+    store().addNode('module', { x: 240, y: 0 });
+    const [a, b] = store().nodes;
+    store().onConnect({ source: a.id, target: b.id, sourceHandle: null, targetHandle: null });
+    expect(store().edges).toHaveLength(1);
+    expect(store().edges[0].data?.kind).toBe('flow');
   });
 
   it('does not seed facets inside a non-microservice', () => {
@@ -111,16 +112,17 @@ describe('useArchStore', () => {
     expect(store().nodes).toHaveLength(0);
   });
 
-  it('opens a Behavior facet on a starting Trigger and flows blocks together', () => {
+  it('opens a module on a starting Trigger and flows blocks together', () => {
     store().addNode('microservice', { x: 0, y: 0 });
     store().enter(store().nodes[0].id);
-    const behavior = store().nodes.find((n) => n.data.kind === 'behavior')!;
-    store().enter(behavior.id);
+    store().addNode('module', { x: 0, y: 0 });
+    const module = store().nodes.find((n) => n.data.kind === 'module')!;
+    store().enter(module.id);
 
-    // Warm start: exactly one Trigger, and the context resolves to Behavior.
+    // Warm start: exactly one Trigger, and the context resolves to the module.
     expect(store().nodes).toHaveLength(1);
     expect(store().nodes[0].data.kind).toBe('trigger');
-    expect(selectContainerKind(useArchStore.getState())).toBe('behavior');
+    expect(selectContainerKind(useArchStore.getState())).toBe('module');
 
     // A behavior→behavior connection is a directional flow edge.
     store().addNode('step', { x: 360, y: 120 });

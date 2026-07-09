@@ -10,6 +10,15 @@ dependencies:
     label: SMTP API
   - repo: fcm
     label: push API
+modules:
+  - name: Email
+    description: Transactional email delivery
+    dependencies: [Templates]
+  - name: Push
+    description: Mobile push notifications
+    dependencies: [Templates]
+  - name: Templates
+    description: Localised message templates
 build:
   status: passing
   items: [lint, docker image]

@@ -6,9 +6,11 @@ import {
   SCAN_FORMAT_VERSION,
   SCAN_STORAGE_KINDS,
   type RepoDoc,
+  type ScanBehaviorBlock,
   type ScanBuildStatus,
   type ScanDoc,
   type ScanFlowEdge,
+  type ScanModule,
   type SystemDoc,
 } from './format';
 
@@ -81,24 +83,9 @@ function parseRepoDoc(raw: Record<string, unknown>, where: string): RepoDoc {
     });
   }
 
-  if (raw.behavior !== undefined) {
-    if (!isRecord(raw.behavior) || !Array.isArray(raw.behavior.blocks)) {
-      fail(where, '`behavior` must be { blocks: [...], flow?: [...] }');
-    }
-    const b = raw.behavior as Record<string, unknown>;
-    doc.behavior = {
-      blocks: (b.blocks as unknown[]).map((blk, i) => {
-        if (!isRecord(blk) || typeof blk.name !== 'string') return fail(`${where}.behavior.blocks[${i}]`, '`name` is required');
-        return {
-          name: blk.name,
-          kind: blk.kind !== undefined ? oneOf(blk.kind, SCAN_BEHAVIOR_KINDS, `${where}.behavior.blocks[${i}].kind`) : undefined,
-        };
-      }),
-      flow:
-        b.flow !== undefined
-          ? asFlowList(b.flow, `${where}.behavior.flow`)
-          : undefined,
-    };
+  if (raw.modules !== undefined) {
+    if (!Array.isArray(raw.modules)) fail(where, '`modules` must be a list');
+    doc.modules = (raw.modules as unknown[]).map((m, i) => parseModule(m, `${where}.modules[${i}]`));
   }
 
   // A plain string list is shorthand: items for build/test, environments for deploy.
@@ -138,6 +125,40 @@ function parseRepoDoc(raw: Record<string, unknown>, where: string): RepoDoc {
 function asFlowList(v: unknown, where: string): ScanFlowEdge[] {
   if (!Array.isArray(v)) fail(where, 'must be a list');
   return (v as unknown[]).map((e, i) => parseFlowEdge(e, `${where}[${i}]`));
+}
+
+function parseBehavior(v: unknown, where: string): { blocks: ScanBehaviorBlock[]; flow?: ScanFlowEdge[] } {
+  if (!isRecord(v) || !Array.isArray(v.blocks)) fail(where, 'must be { blocks: [...], flow?: [...] }');
+  const b = v as Record<string, unknown>;
+  return {
+    blocks: (b.blocks as unknown[]).map((blk, i) => {
+      if (!isRecord(blk) || typeof blk.name !== 'string') return fail(`${where}.blocks[${i}]`, '`name` is required');
+      return {
+        name: blk.name,
+        kind: blk.kind !== undefined ? oneOf(blk.kind, SCAN_BEHAVIOR_KINDS, `${where}.blocks[${i}].kind`) : undefined,
+      };
+    }),
+    flow: b.flow !== undefined ? asFlowList(b.flow, `${where}.flow`) : undefined,
+  };
+}
+
+function parseModule(v: unknown, where: string): ScanModule {
+  if (!isRecord(v) || typeof v.name !== 'string' || !v.name.trim()) fail(where, '`name` is required');
+  const m = v as Record<string, unknown>;
+  const mod: ScanModule = { name: (m.name as string).trim() };
+  if (m.description !== undefined) mod.description = String(m.description);
+  if (m.dependencies !== undefined) {
+    if (!Array.isArray(m.dependencies)) fail(`${where}.dependencies`, 'must be a list');
+    mod.dependencies = (m.dependencies as unknown[]).map((d, i) => {
+      if (typeof d === 'string') return d;
+      if (isRecord(d) && typeof d.module === 'string') {
+        return { module: d.module, label: d.label !== undefined ? String(d.label) : undefined };
+      }
+      return fail(`${where}.dependencies[${i}]`, 'must be a module name or { module, label? }');
+    });
+  }
+  if (m.behavior !== undefined) mod.behavior = parseBehavior(m.behavior, `${where}.behavior`);
+  return mod;
 }
 
 /**

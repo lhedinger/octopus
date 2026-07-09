@@ -8,7 +8,9 @@ export type ComponentKind =
   | 'client'
   | 'externalSystem'
   | 'datastore'
-  // Facets — always present inside a microservice, standalone (no connections).
+  // A grouped subdomain / package inside a codebase component's interior.
+  | 'module'
+  // Retired facet kinds — kept so legacy documents still parse (migrated on load).
   | 'test'
   | 'build'
   | 'deploy'

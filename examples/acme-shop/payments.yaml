@@ -19,22 +19,36 @@ dependencies:
   - repo: notifications
     kind: async
     label: payment.settled
-behavior:
-  blocks:
-    - { name: POST /charge, kind: trigger }
-    - { name: Validate request, kind: rule }
-    - { name: Charge provider, kind: step }
-    - { name: Charged?, kind: decision }
-    - { name: payment.settled, kind: event }
-    - { name: Receipt stored, kind: outcome }
-    - { name: Charge failed, kind: outcome }
-  flow:
-    - [POST /charge, Validate request]
-    - [Validate request, Charge provider]
-    - [Charge provider, Charged?]
-    - { from: Charged?, to: payment.settled, label: yes }
-    - { from: Charged?, to: Charge failed, label: no }
-    - [payment.settled, Receipt stored]
+modules:
+  - name: Charging
+    description: Card charges and idempotency
+    dependencies:
+      - { module: Invoicing, label: settles }
+    behavior:
+      blocks:
+        - { name: POST /charge, kind: trigger }
+        - { name: Validate request, kind: rule }
+        - { name: Charge provider, kind: step }
+        - { name: Charged?, kind: decision }
+        - { name: payment.settled, kind: event }
+        - { name: Receipt stored, kind: outcome }
+        - { name: Charge failed, kind: outcome }
+      flow:
+        - [POST /charge, Validate request]
+        - [Validate request, Charge provider]
+        - [Charge provider, Charged?]
+        - { from: Charged?, to: payment.settled, label: yes }
+        - { from: Charged?, to: Charge failed, label: no }
+        - [payment.settled, Receipt stored]
+  - name: Refunds
+    description: Reversals and disputes
+    dependencies: [Charging]
+  - name: Invoicing
+    description: Receipts and settlement records
+  - name: Provider webhooks
+    description: Async status updates from Stripe
+    dependencies:
+      - { module: Charging, label: status updates }
 build:
   status: passing
   items: [lint, unit tests, contract tests, docker image]

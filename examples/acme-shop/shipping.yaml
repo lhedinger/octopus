@@ -13,6 +13,13 @@ dependencies:
   - repo: notifications
     kind: async
     label: shipment.dispatched
+modules:
+  - name: Booking
+    description: Carrier selection and pickup
+  - name: Tracking
+    description: Shipment status ingestion
+    dependencies:
+      - { module: Booking, label: updates }
 build:
   status: passing
   items: [lint, unit tests, docker image]

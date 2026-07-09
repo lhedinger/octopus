@@ -23,15 +23,23 @@ export function isProject(value: unknown): value is ProjectDocument {
 const RETIRED_FACETS: ComponentKind[] = ['test', 'build', 'deploy'];
 
 /**
- * Bring an older project up to date: build/test/deploy stopped being drill-in
- * tiles (their state lives on the component as badges/lenses now), so strip
- * the seeded tiles and prune the levels they anchored.
+ * Bring an older project up to date:
+ * - build/test/deploy stopped being drill-in tiles (their state lives on the
+ *   component as badges/lenses now) — strip them and prune their levels;
+ * - the fixed Behavior facet became a regular module — convert it in place
+ *   (same id, so the flow level beneath it survives).
  */
 export function migrateProject(project: ProjectDocument): ProjectDocument {
   const levels: Record<string, Level> = {};
   for (const [key, level] of Object.entries(project.levels)) {
     levels[key] = {
-      nodes: level.nodes.filter((n) => !(RETIRED_FACETS.includes(n.kind) && n.meta?.fixed === true)),
+      nodes: level.nodes
+        .filter((n) => !(RETIRED_FACETS.includes(n.kind) && n.meta?.fixed === true))
+        .map((n) =>
+          n.kind === 'behavior' && n.meta?.fixed === true
+            ? { ...n, kind: 'module' as ComponentKind, meta: { ...n.meta, fixed: undefined } }
+            : n,
+        ),
       edges: level.edges,
     };
   }

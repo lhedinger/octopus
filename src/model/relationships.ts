@@ -15,14 +15,21 @@ export function isFacet(kind: ComponentKind): boolean {
 }
 
 /**
- * Behavior blocks live inside a Behavior facet and model a service's runtime
- * flow (Trigger → Step → Decision → Rule → Event → Outcome). They link to one
+ * Behavior blocks live inside a module and model its runtime flow
+ * (Trigger → Step → Decision → Rule → Event → Outcome). They link to one
  * another with directional flow arrows and never mix with infrastructure kinds.
  */
 export const BEHAVIOR_KINDS: ComponentKind[] = ['trigger', 'step', 'decision', 'rule', 'event', 'outcome'];
 
 export function isBehavior(kind: ComponentKind): boolean {
   return BEHAVIOR_KINDS.includes(kind);
+}
+
+/** Kinds that represent a codebase; their interior holds modules, and build/test/deploy badges apply. */
+export const BADGE_KINDS: ComponentKind[] = ['service', 'microservice', 'apiGateway', 'client'];
+
+export function isCodebase(kind: ComponentKind): boolean {
+  return BADGE_KINDS.includes(kind);
 }
 
 export type LinkKind = 'connection' | 'attachment';
@@ -43,6 +50,12 @@ export function canConnect(a: ComponentKind, b: ComponentKind): ConnectCheck {
     return isBehavior(a) && isBehavior(b)
       ? { ok: true }
       : { ok: false, reason: 'Behavior blocks flow into other behavior blocks — not infrastructure.' };
+  }
+  // Modules depend on sibling modules inside the same component.
+  if (a === 'module' || b === 'module') {
+    return a === b
+      ? { ok: true }
+      : { ok: false, reason: 'Modules depend on other modules — not on infrastructure.' };
   }
   if (isFacet(a) || isFacet(b)) {
     return { ok: false, reason: 'That’s a built-in facet — it doesn’t use connections.' };

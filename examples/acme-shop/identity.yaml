@@ -13,6 +13,15 @@ dependencies:
   - repo: notifications
     kind: async
     label: user.registered
+modules:
+  - name: Authentication
+    description: Sign-in flows and MFA
+    dependencies:
+      - { module: Tokens, label: issues }
+  - name: Tokens
+    description: JWT issuing and rotation
+  - name: Profiles
+    description: Account data and preferences
 build:
   status: passing
   items: [lint, unit tests, docker image]

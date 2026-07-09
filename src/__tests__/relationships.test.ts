@@ -42,4 +42,10 @@ describe('relationship rules', () => {
     expect(canConnect('step', 'database').ok).toBe(false);
     expect(canConnect('service', 'outcome').ok).toBe(false);
   });
+
+  it('lets modules depend on sibling modules only', () => {
+    expect(canConnect('module', 'module').ok).toBe(true);
+    expect(canConnect('module', 'service').ok).toBe(false);
+    expect(canConnect('queue', 'module').ok).toBe(false);
+  });
 });

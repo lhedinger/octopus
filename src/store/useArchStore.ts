@@ -11,7 +11,7 @@ import type { ArchNode, ComponentKind, EdgeKind, Level, ProjectDocument } from '
 import { ROOT_PATH } from '../model/types';
 import { defaultLabel } from '../model/palette';
 import { canConnect, isBehavior } from '../model/relationships';
-import { withFacets, type Lens } from '../model/facets';
+import type { Lens } from '../model/facets';
 import { TILE_SIZE, snapPoint } from '../model/grid';
 import {
   edgeToFlow,
@@ -81,7 +81,7 @@ let spawnIndex = 0;
 const keyOf = (path: string[]) => path.join('/');
 
 /**
- * Warm-start a Behavior facet with a single Trigger so the canvas invites
+ * Warm-start a module's flow with a single Trigger so the canvas invites
  * "…and then what?" instead of being blank. Only seeded while empty — it's a
  * starting anchor, not a fixed facet, so it can be moved or replaced.
  */
@@ -130,7 +130,8 @@ export const useArchStore = create<ArchState>((set, get) => {
         set({ notice: check.reason });
         return;
       }
-      const kind: EdgeKind = isBehavior(source.data.kind) ? 'flow' : 'sync';
+      // Behavior flows and module dependencies read as directional arrows.
+      const kind: EdgeKind = isBehavior(source.data.kind) || source.data.kind === 'module' ? 'flow' : 'sync';
       const edge = edgeToFlow({ id: crypto.randomUUID(), source: connection.source!, target: connection.target!, kind });
       set({ edges: addEdge(edge, get().edges) });
     },
@@ -228,7 +229,7 @@ export const useArchStore = create<ArchState>((set, get) => {
         set({ notice: check.reason ?? 'Those components can’t be connected.', connectSource: undefined });
         return;
       }
-      const kind: EdgeKind = source && isBehavior(source.data.kind) ? 'flow' : 'sync';
+      const kind: EdgeKind = source && (isBehavior(source.data.kind) || source.data.kind === 'module') ? 'flow' : 'sync';
       const edge = edgeToFlow({ id: crypto.randomUUID(), source: connectSource, target: id, kind });
       set({ edges: addEdge(edge, get().edges), connectSource: undefined });
     },
@@ -246,10 +247,8 @@ export const useArchStore = create<ArchState>((set, get) => {
       const newPath = [...path, nodeId];
       const key = keyOf(newPath);
       let level = levels[key] ?? { nodes: [], edges: [] };
-      // A microservice always carries its test/build/deploy/behavior facets.
-      if (host?.data.kind === 'microservice') level = withFacets(level);
-      // A Behavior facet opens on a starting Trigger.
-      else if (host?.data.kind === 'behavior') level = withTrigger(level);
+      // A module (or a legacy Behavior facet) opens on a starting Trigger.
+      if (host?.data.kind === 'module' || host?.data.kind === 'behavior') level = withTrigger(level);
       levels[key] = level;
       const flow = levelToFlow(level);
       spawnIndex = 0;

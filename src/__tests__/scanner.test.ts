@@ -17,14 +17,20 @@ dependencies:
   - repo: notifications
     kind: async
     label: payment.settled
-behavior:
-  blocks:
-    - { name: POST /charge, kind: trigger }
-    - { name: Charged?, kind: decision }
-    - { name: Done, kind: outcome }
-  flow:
-    - [POST /charge, Charged?]
-    - { from: Charged?, to: Done, label: yes }
+modules:
+  - name: Charging
+    description: Card charges
+    dependencies:
+      - { module: Invoicing, label: settles }
+    behavior:
+      blocks:
+        - { name: POST /charge, kind: trigger }
+        - { name: Charged?, kind: decision }
+        - { name: Done, kind: outcome }
+      flow:
+        - [POST /charge, Charged?]
+        - { from: Charged?, to: Done, label: yes }
+  - name: Invoicing
 build: [lint, docker image]
 test:
   coverage: 87
@@ -67,7 +73,7 @@ describe('scanner', () => {
     expect(project.levels[ROOT_PATH].edges[0]).toMatchObject({ kind: 'async', label: 'payment.settled' });
   });
 
-  it('attaches storage, carries facet facts on the node, and builds the behavior interior', () => {
+  it('attaches storage, carries facet facts on the node, and builds module interiors', () => {
     const project = scan(PAYMENTS);
     const root = project.levels[ROOT_PATH];
     const db = root.nodes.find((n) => n.kind === 'database')!;
@@ -80,18 +86,23 @@ describe('scanner', () => {
     expect(facets.test?.coverage).toBe(87);
     expect(facets.deploy?.environments).toEqual(['staging', 'production']);
 
+    // The interior shows the repo's modules with dependency arrows.
     const interior = project.levels[repoNodeId('payments')];
-    expect(interior.nodes.map((n) => n.kind)).toEqual(['behavior']);
+    expect(interior.nodes.map((n) => n.kind)).toEqual(['module', 'module']);
+    expect(interior.nodes.map((n) => n.label).sort()).toEqual(['Charging', 'Invoicing']);
+    expect(interior.edges).toHaveLength(1);
+    expect(interior.edges[0]).toMatchObject({ kind: 'flow', label: 'settles' });
 
-    const behaviorFacet = interior.nodes.find((n) => n.kind === 'behavior')!;
-    const flow = project.levels[`${repoNodeId('payments')}/${behaviorFacet.id}`];
+    // A module's runtime flow sits one level deeper.
+    const charging = interior.nodes.find((n) => n.label === 'Charging')!;
+    const flow = project.levels[`${repoNodeId('payments')}/${charging.id}`];
     expect(flow.nodes.map((n) => n.kind).sort()).toEqual(['decision', 'outcome', 'trigger']);
     expect(flow.edges).toHaveLength(2);
     expect(flow.edges.every((e) => e.kind === 'flow')).toBe(true);
     expect(flow.edges.find((e) => e.label === 'yes')).toBeTruthy();
   });
 
-  it('migrates legacy projects: retired facet tiles are stripped and their levels pruned', () => {
+  it('migrates legacy projects: retired facets stripped, Behavior facet becomes a module', () => {
     const legacy = {
       version: 2 as const,
       id: 'p1',
@@ -111,9 +122,11 @@ describe('scanner', () => {
       },
     };
     const migrated = migrateProject(legacy);
-    expect(migrated.levels['ms1'].nodes.map((n) => n.kind)).toEqual(['behavior']);
+    // The fixed Behavior facet converts to a plain module (same id, so its flow survives).
+    expect(migrated.levels['ms1'].nodes.map((n) => n.kind)).toEqual(['module']);
+    expect(migrated.levels['ms1'].nodes[0].meta?.fixed).toBeUndefined();
     expect(migrated.levels['ms1/f-test']).toBeUndefined(); // anchored to a stripped tile
-    expect(migrated.levels['ms1/f-behavior'].nodes).toHaveLength(1); // spatial facet survives
+    expect(migrated.levels['ms1/f-behavior'].nodes).toHaveLength(1); // flow level survives
   });
 
   it('lays out callers to the left of what they call', () => {
@@ -135,11 +148,14 @@ describe('scanner', () => {
     expect(project.levels[ROOT_PATH].nodes).toHaveLength(2);
   });
 
-  it('rejects duplicate repo ids and unknown flow blocks', () => {
+  it('rejects duplicate repo ids, unknown flow blocks, and unknown module deps', () => {
     expect(() => scan('octopus: 1\nrepo: a', 'octopus: 1\nrepo: a')).toThrow(/Duplicate repo/);
     expect(() =>
-      scan('octopus: 1\nrepo: a\nbehavior:\n  blocks: [{ name: x }]\n  flow: [[x, missing]]'),
+      scan('octopus: 1\nrepo: a\nmodules:\n  - name: m\n    behavior:\n      blocks: [{ name: x }]\n      flow: [[x, missing]]'),
     ).toThrow(/unknown block/);
+    expect(() =>
+      scan('octopus: 1\nrepo: a\nmodules:\n  - name: m\n    dependencies: [ghost]'),
+    ).toThrow(/unknown module/);
   });
 
   it('merges a re-scan without destroying curation', () => {
@@ -164,11 +180,11 @@ describe('scanner', () => {
     expect(mergedRoot.nodes.find((n) => n.id === repoNodeId('legacy'))).toBeUndefined();
     // The removed repo's interior levels are pruned too.
     expect(merged.levels[repoNodeId('legacy')]).toBeUndefined();
-    // …but surviving repos keep their interiors (facets + behavior flow).
+    // …but surviving repos keep their interiors (modules + flows beneath).
     const interior = merged.levels[repoNodeId('payments')];
     expect(interior).toBeDefined();
-    const behaviorFacet = interior.nodes.find((n) => n.kind === 'behavior')!;
-    expect(merged.levels[`${repoNodeId('payments')}/${behaviorFacet.id}`].nodes.length).toBeGreaterThan(0);
+    const charging = interior.nodes.find((n) => n.label === 'Charging')!;
+    expect(merged.levels[`${repoNodeId('payments')}/${charging.id}`].nodes.length).toBeGreaterThan(0);
   });
 
   it('keeps the shipped example valid (it backs the Load-example menu item)', () => {
@@ -179,9 +195,12 @@ describe('scanner', () => {
     const project = assembleProject(docs);
     expect(project.name).toBe('ACME Shop');
     expect(project.levels[ROOT_PATH].nodes.filter((n) => !n.parentId).length).toBeGreaterThanOrEqual(7);
-    // The payments behavior flow is the drill-down showcase — keep it present.
+    // The payments interior is the drill-down showcase: modules, then the
+    // Charging module's flow one level deeper — keep both present.
     const interior = project.levels[repoNodeId('payments')];
-    const behaviorFacet = interior.nodes.find((n) => n.kind === 'behavior')!;
-    expect(project.levels[`${repoNodeId('payments')}/${behaviorFacet.id}`].edges.length).toBeGreaterThan(0);
+    expect(interior.nodes.every((n) => n.kind === 'module')).toBe(true);
+    expect(interior.nodes.length).toBeGreaterThanOrEqual(3);
+    const charging = interior.nodes.find((n) => n.label === 'Charging')!;
+    expect(project.levels[`${repoNodeId('payments')}/${charging.id}`].edges.length).toBeGreaterThan(0);
   });
 });

@@ -10,6 +10,12 @@ storage:
 dependencies:
   - repo: catalog
     label: price lookup
+modules:
+  - name: Basket
+    description: Add/remove items, session binding
+  - name: Totals
+    description: Prices, discounts, tax
+    dependencies: [Basket]
 build:
   status: passing
   items: [lint, unit tests, docker image]

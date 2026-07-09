@@ -145,18 +145,17 @@ export function Canvas() {
         }
       }
 
-      // Which top-level component is under the screen centre, and how much it fills.
+      // Which top-level component is nearest the screen centre, and how much it
+      // fills. Nearest-within-a-tile rather than strict containment: in a
+      // bounded interior the pan extent can clamp the zoom's focal point, so
+      // the tile being zoomed into may sit slightly off-centre.
       const cx = (W / 2 - vp.x) / z;
       const cy = (H / 2 - vp.y) / z;
-      const target = getNodes().find(
-        (n) =>
-          !n.parentId &&
-          n.type === 'component' &&
-          cx >= n.position.x &&
-          cx <= n.position.x + TILE_SIZE &&
-          cy >= n.position.y &&
-          cy <= n.position.y + TILE_SIZE,
-      );
+      const target = getNodes()
+        .filter((n) => !n.parentId && n.type === 'component')
+        .map((n) => ({ n, d: Math.hypot(cx - (n.position.x + TILE_SIZE / 2), cy - (n.position.y + TILE_SIZE / 2)) }))
+        .filter((e) => e.d < TILE_SIZE)
+        .sort((a, b) => a.d - b.d)[0]?.n;
       const fill = target ? (TILE_SIZE * z) / minDim : 0;
 
       if (target && z >= ENTER_ZOOM_MIN && fill >= ENTER_FILL) {

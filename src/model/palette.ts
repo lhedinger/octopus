@@ -1,5 +1,5 @@
 import type { ComponentKind } from './types';
-import { isBehavior, isFacet, isStorage } from './relationships';
+import { isBehavior, isCodebase, isFacet, isStorage } from './relationships';
 
 export interface PaletteEntry {
   kind: ComponentKind;
@@ -21,6 +21,8 @@ const KIND_INFO: PaletteEntry[] = [
   { kind: 'client', label: 'Client', hint: 'User-facing app', hue: 95 },
   { kind: 'externalSystem', label: 'External System', hint: 'Third-party dependency', hue: 320 },
   { kind: 'datastore', label: 'Datastore', hint: 'Blob / object storage', hue: 50 },
+  // Interior building block: a grouped subdomain / package inside a codebase.
+  { kind: 'module', label: 'Module', hint: 'Subdomain / package', hue: 175 },
   // Facets (not shown in the dock — auto-present inside a microservice).
   { kind: 'test', label: 'Test', hint: 'Test suites & coverage', hue: 135 },
   { kind: 'build', label: 'Build', hint: 'Build / CI pipeline', hue: 45 },
@@ -45,18 +47,26 @@ const PALETTE_BY_KIND: Record<ComponentKind, PaletteEntry> = Object.fromEntries(
  * in the palette.
  */
 export const PALETTE: PaletteEntry[] = KIND_INFO.filter(
-  (entry) => !isStorage(entry.kind) && !isFacet(entry.kind) && !isBehavior(entry.kind),
+  (entry) => !isStorage(entry.kind) && !isFacet(entry.kind) && !isBehavior(entry.kind) && entry.kind !== 'module',
 );
 
 /** Storage kinds, for the host's "add storage" control. */
 export const STORAGE_PALETTE: PaletteEntry[] = KIND_INFO.filter((entry) => isStorage(entry.kind));
 
-/** Behavior blocks, offered in the dock only when inside a Behavior facet. */
+/** Behavior blocks, offered in the dock inside a module. */
 export const BEHAVIOR_PALETTE: PaletteEntry[] = KIND_INFO.filter((entry) => isBehavior(entry.kind));
 
-/** The dock's contents depend on what container you've drilled into. */
+/** Inside a codebase component, the dock offers its building block: modules. */
+export const MODULE_PALETTE: PaletteEntry[] = KIND_INFO.filter((entry) => entry.kind === 'module');
+
+/**
+ * The dock's contents depend on what container you've drilled into:
+ * system map → infrastructure, codebase interior → modules, module → behavior.
+ */
 export function paletteForContainer(containerKind?: ComponentKind): PaletteEntry[] {
-  return containerKind === 'behavior' ? BEHAVIOR_PALETTE : PALETTE;
+  if (containerKind === 'module' || containerKind === 'behavior') return BEHAVIOR_PALETTE;
+  if (containerKind && isCodebase(containerKind)) return MODULE_PALETTE;
+  return PALETTE;
 }
 
 export function paletteEntry(kind: ComponentKind): PaletteEntry {

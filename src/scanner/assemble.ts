@@ -1,10 +1,9 @@
-import type { ArchEdge, ArchNode, ComponentKind, Level, ProjectDocument } from '../model/types';
+import type { ArchEdge, ArchNode, Level, ProjectDocument } from '../model/types';
 import { ROOT_PATH } from '../model/types';
-import { withFacets } from '../model/facets';
 import { defaultLabel } from '../model/palette';
 import { TILE_SIZE } from '../model/grid';
 import { ScanFormatError } from './parse';
-import { isRepoDoc, type RepoDoc, type ScanDoc, type ScanFlowEdge, type SystemDoc } from './format';
+import { isRepoDoc, type RepoDoc, type ScanDoc, type ScanFlowEdge, type ScanModule, type SystemDoc } from './format';
 
 /** Placeholder name until a system doc names the map. */
 export const UNNAMED_SYSTEM = 'Scanned system';
@@ -17,8 +16,8 @@ export const UNNAMED_SYSTEM = 'Scanned system';
 const slug = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9_.-]+/g, '-');
 export const repoNodeId = (repo: string) => `repo:${slug(repo)}`;
 const storageNodeId = (repo: string, name: string) => `sto:${slug(repo)}:${slug(name)}`;
-const facetNodeId = (repo: string, kind: ComponentKind) => `fct:${slug(repo)}:${kind}`;
-const blockNodeId = (repo: string, name: string) => `bhv:${slug(repo)}:${slug(name)}`;
+const moduleNodeId = (repo: string, name: string) => `mod:${slug(repo)}:${slug(name)}`;
+const blockNodeId = (repo: string, module: string, name: string) => `bhv:${slug(repo)}:${slug(module)}:${slug(name)}`;
 
 const scanMeta = (repo: string, extra?: Record<string, unknown>) => ({ source: 'scan', repo, ...extra });
 
@@ -41,20 +40,12 @@ function computeRanks(repos: string[], callersOf: Map<string, string[]>): Map<st
   return memo;
 }
 
-/** Build the interior level (behavior facet + scanned flow) for one repo. */
-function buildInterior(doc: RepoDoc, levels: Record<string, Level>): void {
-  // Build/test/deploy live on the tile as badges (meta.facets), not as
-  // interiors; only microservices (and anything with a scanned flow) get the
-  // spatial Behavior facet inside.
-  if ((doc.kind ?? 'microservice') !== 'microservice' && !doc.behavior) return;
-  const hostId = repoNodeId(doc.repo);
-  levels[hostId] = withFacets({ nodes: [], edges: [] }, (kind) => facetNodeId(doc.repo, kind), scanMeta(doc.repo));
-
-  if (!doc.behavior) return;
-  const behaviorFacetId = facetNodeId(doc.repo, 'behavior');
+/** One module's runtime flow, one drill-down inside the module. */
+function buildModuleFlow(doc: RepoDoc, mod: ScanModule, levels: Record<string, Level>): void {
+  if (!mod.behavior) return;
   const idOf = new Map<string, string>();
-  const nodes: ArchNode[] = doc.behavior.blocks.map((block, i) => {
-    const id = blockNodeId(doc.repo, block.name);
+  const nodes: ArchNode[] = mod.behavior.blocks.map((block, i) => {
+    const id = blockNodeId(doc.repo, mod.name, block.name);
     idOf.set(block.name, id);
     return {
       id,
@@ -65,16 +56,62 @@ function buildInterior(doc: RepoDoc, levels: Record<string, Level>): void {
       meta: scanMeta(doc.repo),
     };
   });
-  const edges: ArchEdge[] = (doc.behavior.flow ?? []).map((f: ScanFlowEdge) => {
+  const edges: ArchEdge[] = (mod.behavior.flow ?? []).map((f: ScanFlowEdge) => {
     const [from, to, label] = Array.isArray(f) ? [f[0], f[1], undefined] : [f.from, f.to, f.label];
     const source = idOf.get(from);
     const target = idOf.get(to);
     if (!source || !target) {
-      throw new ScanFormatError(`${doc.repo}: behavior flow references unknown block "${source ? to : from}"`);
+      throw new ScanFormatError(`${doc.repo}/${mod.name}: behavior flow references unknown block "${source ? to : from}"`);
     }
-    return { id: `flw:${slug(doc.repo)}:${slug(from)}:${slug(to)}`, source, target, label, kind: 'flow', meta: scanMeta(doc.repo) };
+    return {
+      id: `flw:${slug(doc.repo)}:${slug(mod.name)}:${slug(from)}:${slug(to)}`,
+      source,
+      target,
+      label,
+      kind: 'flow',
+      meta: scanMeta(doc.repo),
+    };
   });
-  levels[`${hostId}/${behaviorFacetId}`] = { nodes, edges };
+  levels[`${repoNodeId(doc.repo)}/${moduleNodeId(doc.repo, mod.name)}`] = { nodes, edges };
+}
+
+/** The repo's interior: its subdomains/modules and their dependency arrows. */
+function buildInterior(doc: RepoDoc, levels: Record<string, Level>): void {
+  const modules = doc.modules ?? [];
+  if (modules.length === 0) return;
+  const hostId = repoNodeId(doc.repo);
+
+  const nodes: ArchNode[] = modules.map((mod, i) => ({
+    id: moduleNodeId(doc.repo, mod.name),
+    kind: 'module',
+    label: mod.name,
+    description: mod.description,
+    // Up to three modules per row across the 600px interior world.
+    position: { x: (i % 3) * TILE_SIZE * 2, y: TILE_SIZE + Math.floor(i / 3) * TILE_SIZE * 2 },
+    meta: scanMeta(doc.repo),
+  }));
+
+  const known = new Set(modules.map((m) => moduleNodeId(doc.repo, m.name)));
+  const edges: ArchEdge[] = modules.flatMap((mod) =>
+    (mod.dependencies ?? []).map((dep) => {
+      const [name, label] = typeof dep === 'string' ? [dep, undefined] : [dep.module, dep.label];
+      const target = moduleNodeId(doc.repo, name);
+      if (!known.has(target)) {
+        throw new ScanFormatError(`${doc.repo}/${mod.name}: depends on unknown module "${name}"`);
+      }
+      return {
+        id: `mdep:${slug(doc.repo)}:${slug(mod.name)}:${slug(name)}`,
+        source: moduleNodeId(doc.repo, mod.name),
+        target,
+        label,
+        kind: 'flow' as const,
+        meta: scanMeta(doc.repo),
+      };
+    }),
+  );
+
+  levels[hostId] = { nodes, edges };
+  for (const mod of modules) buildModuleFlow(doc, mod, levels);
 }
 
 /**

@@ -176,6 +176,18 @@ function buildBody(shapes: Shape[], input: ArtInput, p: Palette, rng: Rng): void
       shapes.push({ t: 'circle', cx: x, cy: y, r: 3.2, fill: hsl((p.hue + 40) % 360, 75, 66) });
       break;
     }
+    case 'module': {
+      // A subdomain reads as a district: a pad carrying a cluster of blocks.
+      const spots: [number, number][] = [
+        [-1.8, -1.8],
+        [1.8, -1.2],
+        [-0.6, 1.8],
+      ];
+      for (const [mx, my] of spots) {
+        addCuboid(shapes, cuboid({ cx: mx, cy: my, hx: 1.5, hy: 1.5, h: rng.range(1.6, 3.2), hue: p.hue, sat: p.sat, light: p.light + rng.range(-4, 4) }));
+      }
+      break;
+    }
     case 'trigger':
     case 'step':
     case 'decision':

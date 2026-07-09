@@ -41,14 +41,20 @@ dependencies:           # outgoing edges on the system map
     kind: sync          # sync | async | data   (default: sync)
     label: charge lookup
 
-behavior:               # the service's runtime flow (Behavior facet interior)
-  blocks:
-    - { name: POST /charge, kind: trigger }   # trigger | step | decision
-    - { name: Charged?,     kind: decision }  #   | rule | event | outcome
-    - { name: Done,         kind: outcome }   # (default: step)
-  flow:
-    - [POST /charge, Charged?]                # short form: [from, to]
-    - { from: Charged?, to: Done, label: yes } # labelled branch
+modules:                # the repo's grouped subdomains — its interior canvas
+  - name: Charging
+    description: Card charges and idempotency
+    dependencies:                       # arrows between sibling modules
+      - { module: Invoicing, label: settles }   # or just the name: [Invoicing]
+    behavior:           # optional runtime flow, one drill-down inside the module
+      blocks:
+        - { name: POST /charge, kind: trigger }   # trigger | step | decision
+        - { name: Charged?,     kind: decision }  #   | rule | event | outcome
+        - { name: Done,         kind: outcome }   # (default: step)
+      flow:
+        - [POST /charge, Charged?]                # short form: [from, to]
+        - { from: Charged?, to: Done, label: yes } # labelled branch
+  - name: Invoicing
 
 build:                  # tile badge + Build lens
   status: passing       # passing | failing | unknown

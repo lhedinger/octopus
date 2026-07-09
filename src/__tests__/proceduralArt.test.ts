@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { buildScene } from '../render/proceduralArt';
-import { BEHAVIOR_PALETTE, PALETTE } from '../model/palette';
+import { BEHAVIOR_PALETTE, MODULE_PALETTE, PALETTE } from '../model/palette';
 
 describe('proceduralArt', () => {
-  it('renders a non-empty scene for every component and behavior kind', () => {
-    for (const entry of [...PALETTE, ...BEHAVIOR_PALETTE]) {
+  it('renders a non-empty scene for every component, module, and behavior kind', () => {
+    for (const entry of [...PALETTE, ...MODULE_PALETTE, ...BEHAVIOR_PALETTE]) {
       const scene = buildScene({ kind: entry.kind, name: entry.label });
       expect(scene.shapes.length).toBeGreaterThan(0);
     }
