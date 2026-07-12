@@ -17,6 +17,7 @@ import { TILE_SIZE } from '../model/grid';
 import { BADGE_KINDS, lensMetric } from '../model/aspects';
 import type { FlowNode } from '../model/mapping';
 import { ComponentNode } from './nodes/ComponentNode';
+import { ZoneLayer } from './ZoneLayer';
 
 const nodeTypes = { component: ComponentNode };
 
@@ -344,6 +345,7 @@ export function Canvas() {
         snapToGrid
         snapGrid={[TILE_SIZE, TILE_SIZE]}
       >
+        <ZoneLayer />
         {GRID_SCALES.map((gap, i) => (
           <Background key={gap} id={`grid${i}`} className={`gridlayer g${i}`} variant={BackgroundVariant.Lines} gap={gap} lineWidth={1} color="#3a4a63" />
         ))}

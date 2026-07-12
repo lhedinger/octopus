@@ -12,6 +12,7 @@ import { ROOT_PATH } from '../model/types';
 import { defaultLabel } from '../model/palette';
 import { canConnect, isBehavior } from '../model/relationships';
 import type { Lens } from '../model/aspects';
+import type { ZoneMode } from '../model/zones';
 import { TILE_SIZE, snapPoint } from '../model/grid';
 import {
   edgeToFlow,
@@ -46,6 +47,8 @@ export interface ArchState {
   notice?: string;
   /** Active map overlay tinting codebase tiles by one facet metric. */
   lens: Lens;
+  /** Active zone grouping (bounded contexts / teams) drawn behind the tiles. */
+  zones: ZoneMode;
 
   onNodesChange: (changes: NodeChange<FlowNode>[]) => void;
   onEdgesChange: (changes: EdgeChange<FlowEdge>[]) => void;
@@ -65,6 +68,7 @@ export interface ArchState {
   /** Show a transient toast (also used for rule-blocked actions). */
   notify: (message: string) => void;
   setLens: (lens: Lens) => void;
+  setZones: (zones: ZoneMode) => void;
 
   /** Drill into a component, opening (or creating) its inner canvas. */
   enter: (nodeId: string) => void;
@@ -117,6 +121,7 @@ export const useArchStore = create<ArchState>((set, get) => {
     edges: root.edges,
     tapConnect: false,
     lens: 'none',
+    zones: 'none',
 
     onNodesChange: (changes) => set({ nodes: applyNodeChanges(changes, get().nodes) }),
     onEdgesChange: (changes) => set({ edges: applyEdgeChanges(changes, get().edges) }),
@@ -239,6 +244,8 @@ export const useArchStore = create<ArchState>((set, get) => {
     notify: (message) => set({ notice: message }),
 
     setLens: (lens) => set({ lens }),
+
+    setZones: (zones) => set({ zones }),
 
     enter: (nodeId) => {
       const { path } = get();

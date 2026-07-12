@@ -4,6 +4,7 @@ name: Identity
 kind: microservice
 description: Sign-in, tokens, profiles
 context: identity
+team: platform
 storage:
   - kind: database
     name: identity-db

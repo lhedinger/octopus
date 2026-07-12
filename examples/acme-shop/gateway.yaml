@@ -4,6 +4,7 @@ name: Edge Gateway
 kind: apiGateway
 description: Routing, auth, rate limiting
 context: experience
+team: platform
 dependencies:
   - repo: identity
     label: auth

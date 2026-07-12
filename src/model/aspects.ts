@@ -39,6 +39,15 @@ const BLUE = '#38bdf8';
 const scoreColor = (score?: number) =>
   score === undefined ? GRAY : score >= 80 ? GREEN : score >= 50 ? AMBER : RED;
 
+/** Stable categorical colour for a name (teams, contexts). */
+export function categoryHue(name: string): number {
+  let h = 7;
+  for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return h % 360;
+}
+
+const categoryColor = (name?: string) => (name ? `hsl(${categoryHue(name)} 65% 55%)` : GRAY);
+
 /** Registered aspects, in badge/lens display order. */
 export const ASPECTS: AspectProvider[] = [
   {
@@ -58,6 +67,16 @@ export const ASPECTS: AspectProvider[] = [
     color: (d) => scoreColor(d?.score),
     metric: (d) => (d?.score !== undefined ? `${d.score}%` : 'no data'),
     headline: (d) => (d?.score !== undefined ? `${d.score}% coverage` : 'no data'),
+  },
+  {
+    key: 'ownership',
+    title: 'Owner',
+    icon: '👤',
+    lensLabel: 'Ownership lens',
+    // status carries the owning team; the colour is categorical per team.
+    color: (d) => categoryColor(d?.status),
+    metric: (d) => d?.status ?? 'no team',
+    headline: (d) => d?.status ?? 'no team',
   },
   {
     key: 'deploy',

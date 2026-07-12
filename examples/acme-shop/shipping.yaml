@@ -4,6 +4,7 @@ name: Shipping
 kind: microservice
 description: Fulfilment and carrier hand-off
 context: fulfillment
+team: fulfillment
 storage:
   - kind: database
     name: shipping-db

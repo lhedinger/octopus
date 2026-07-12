@@ -4,6 +4,7 @@ name: Orders
 kind: microservice
 description: Checkout and order lifecycle
 context: purchasing
+team: commerce
 storage:
   - kind: database
     name: orders-db

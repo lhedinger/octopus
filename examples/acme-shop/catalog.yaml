@@ -4,6 +4,7 @@ name: Catalog
 kind: microservice
 description: Products, categories, pricing
 context: discovery
+team: discovery
 storage:
   - kind: database
     name: catalog-db

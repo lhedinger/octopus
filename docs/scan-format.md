@@ -30,7 +30,8 @@ name: Payments          # display name       (default: repo)
 kind: microservice      # service | microservice | apiGateway | client
                         #   | queue | externalSystem   (default: microservice)
 description: Charges cards and settles invoices
-context: billing        # bounded context this repo belongs to
+context: billing        # bounded context this repo belongs to (zone grouping)
+team: payments-squad    # owning team — team zones + ownership badge/lens
 
 storage:                # attached storage (rendered attached to the service)
   - kind: database      # database | cache | datastore

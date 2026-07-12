@@ -1,14 +1,27 @@
 import { useArchStore } from '../store/useArchStore';
 import { ASPECTS } from '../model/aspects';
+import type { ZoneMode } from '../model/zones';
+
+const ZONE_MODES: { key: ZoneMode; icon: string; label: string }[] = [
+  { key: 'context', icon: '🧭', label: 'Bounded-context zones' },
+  { key: 'team', icon: '👥', label: 'Team zones' },
+];
+
+const btn = (active: boolean) =>
+  `flex h-9 w-9 items-center justify-center rounded-xl text-base transition ${
+    active ? 'bg-accent/20 ring-2 ring-accent' : 'hover:bg-white/10'
+  }`;
 
 /**
- * Map lenses — one per registered aspect: tint every codebase tile by that
- * aspect's metric for a whole-system read at any zoom. Tap the active lens
- * again to turn it off.
+ * Map overlays. Lenses (one per registered aspect) tint every codebase tile
+ * by that aspect's metric; zones draw context/team hulls behind the tiles.
+ * Tap the active toggle again to turn it off.
  */
 export function LensBar() {
   const lens = useArchStore((s) => s.lens);
   const setLens = useArchStore((s) => s.setLens);
+  const zones = useArchStore((s) => s.zones);
+  const setZones = useArchStore((s) => s.setZones);
 
   return (
     <div
@@ -22,11 +35,22 @@ export function LensBar() {
           aria-label={a.lensLabel}
           aria-pressed={lens === a.key}
           onClick={() => setLens(lens === a.key ? 'none' : a.key)}
-          className={`flex h-9 w-9 items-center justify-center rounded-xl text-base transition ${
-            lens === a.key ? 'bg-accent/20 ring-2 ring-accent' : 'hover:bg-white/10'
-          }`}
+          className={btn(lens === a.key)}
         >
           {a.icon}
+        </button>
+      ))}
+      <div className="mx-2 h-px bg-white/10" />
+      {ZONE_MODES.map((z) => (
+        <button
+          key={z.key}
+          title={z.label}
+          aria-label={z.label}
+          aria-pressed={zones === z.key}
+          onClick={() => setZones(zones === z.key ? 'none' : z.key)}
+          className={btn(zones === z.key)}
+        >
+          {z.icon}
         </button>
       ))}
     </div>

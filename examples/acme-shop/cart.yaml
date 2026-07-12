@@ -4,6 +4,7 @@ name: Cart
 kind: microservice
 description: Baskets and price totals
 context: purchasing
+team: commerce
 storage:
   - kind: cache
     name: cart-cache

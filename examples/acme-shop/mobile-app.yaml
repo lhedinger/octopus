@@ -4,6 +4,7 @@ name: Mobile App
 kind: client
 description: iOS & Android shopping app
 context: experience
+team: web
 dependencies:
   - repo: gateway
     label: GraphQL

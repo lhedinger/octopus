@@ -4,6 +4,7 @@ name: Web Storefront
 kind: client
 description: Server-rendered web shop
 context: experience
+team: web
 dependencies:
   - repo: gateway
     label: REST

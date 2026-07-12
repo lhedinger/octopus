@@ -4,6 +4,7 @@ name: Payments
 kind: microservice
 description: Charges cards and settles invoices
 context: billing
+team: payments
 storage:
   - kind: database
     name: payments-db

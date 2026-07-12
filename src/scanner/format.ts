@@ -79,6 +79,8 @@ export interface RepoDoc {
   description?: string;
   /** Bounded context this repo belongs to (grouping/curation hint). */
   context?: string;
+  /** Owning team — "you build it you run it" (zones + ownership lens). */
+  team?: string;
   storage?: ScanStorage[];
   dependencies?: ScanDependency[];
   /** The repo's internal subdomains — the component's interior canvas. */

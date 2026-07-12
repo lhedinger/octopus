@@ -4,6 +4,7 @@ name: Inventory
 kind: microservice
 description: Stock levels and reservations
 context: fulfillment
+team: fulfillment
 storage:
   - kind: database
     name: inventory-db

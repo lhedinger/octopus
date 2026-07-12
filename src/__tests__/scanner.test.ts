@@ -56,6 +56,14 @@ describe('scanner', () => {
     expect(() => parseScanDocs('octopus: 1\nrepo: a\nbuild: { status: green }')).toThrow(/one of/);
   });
 
+  it('turns team into meta.team (zones) and the ownership aspect (badge/lens)', () => {
+    const project = scan('octopus: 1\nrepo: a\nteam: payments-squad\ncontext: billing');
+    const node = project.levels[ROOT_PATH].nodes[0];
+    expect(node.meta?.team).toBe('payments-squad');
+    expect(node.meta?.context).toBe('billing');
+    expect((node.meta?.aspects as Record<string, { status?: string }>).ownership.status).toBe('payments-squad');
+  });
+
   it('accepts custom aspects through the generic aspects map', () => {
     const [doc] = parseScanDocs(
       'octopus: 1\nrepo: a\naspects:\n  security: { status: audited, items: [SAST, secrets scan] }\n  docs: { score: 40 }',

@@ -4,6 +4,7 @@ name: Search
 kind: microservice
 description: Product search & ranking
 context: discovery
+team: discovery
 storage:
   - kind: datastore
     name: search-index

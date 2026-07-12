@@ -60,6 +60,7 @@ function parseRepoDoc(raw: Record<string, unknown>, where: string): RepoDoc {
   if (raw.kind !== undefined) doc.kind = oneOf(raw.kind, REPO_KINDS, `${where}.kind`);
   if (raw.description !== undefined) doc.description = String(raw.description);
   if (raw.context !== undefined) doc.context = String(raw.context);
+  if (raw.team !== undefined) doc.team = String(raw.team);
 
   if (raw.storage !== undefined) {
     if (!Array.isArray(raw.storage)) fail(where, '`storage` must be a list');
@@ -113,6 +114,8 @@ function parseRepoDoc(raw: Record<string, unknown>, where: string): RepoDoc {
     aspects.test = parseAspect(t, `${where}.test`);
   }
   if (raw.deploy !== undefined) aspects.deploy = parseAspect(raw.deploy, `${where}.deploy`);
+  // The owning team doubles as the ownership aspect (badge + lens).
+  if (doc.team) aspects.ownership = { status: doc.team, ...aspects.ownership };
   if (Object.keys(aspects).length > 0) doc.aspects = aspects;
   return doc;
 }

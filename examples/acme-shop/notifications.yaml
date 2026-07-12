@@ -4,6 +4,7 @@ name: Notifications
 kind: microservice
 description: Email and push receipts
 context: communication
+team: platform
 dependencies:
   # Not scanned — appear on the map as external-system stubs.
   - repo: ses

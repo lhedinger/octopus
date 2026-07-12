@@ -195,6 +195,7 @@ export function assembleProject(docs: ScanDoc[]): ProjectDocument {
         position,
         meta: scanMeta(doc.repo, {
           ...(doc.context ? { context: doc.context } : undefined),
+          ...(doc.team ? { team: doc.team } : undefined),
           ...(doc.aspects ? { aspects: doc.aspects } : undefined),
         }),
       });
