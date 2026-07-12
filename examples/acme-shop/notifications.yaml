@@ -27,3 +27,8 @@ test:
   coverage: 73
   items: [unit]
 deploy: [staging, production]
+health:
+  status: degraded
+environments:
+  staging: { version: 2.0.0 }
+  production: { version: 1.9.9, status: degraded }

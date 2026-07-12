@@ -1,7 +1,7 @@
 import type { EdgeKind } from '../model/types';
 import { useArchStore } from '../store/useArchStore';
 
-const EDGE_KINDS: EdgeKind[] = ['sync', 'async', 'data'];
+const EDGE_KINDS: EdgeKind[] = ['sync', 'async', 'data', 'flow'];
 const field = 'w-full rounded-lg border border-white/10 bg-panel px-2 py-1.5 text-sm text-slate-100 focus:border-accent focus:outline-none';
 const labelCls = 'mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400';
 
@@ -18,6 +18,8 @@ export function Inspector() {
   const select = useArchStore((s) => s.select);
 
   if (!selectedEdgeId || !edge) return null;
+
+  const meta = edge.data?.meta as { contract?: string[]; traffic?: number; source?: string } | undefined;
 
   return (
     <div className="absolute bottom-[6.25rem] left-3 right-3 z-20 rounded-2xl border border-white/10 bg-panel/90 p-3 shadow-xl backdrop-blur sm:bottom-auto sm:left-auto sm:right-3 sm:top-16 sm:w-72">
@@ -50,6 +52,20 @@ export function Inspector() {
             ))}
           </select>
         </div>
+
+        {meta?.contract && meta.contract.length > 0 && (
+          <div>
+            <label className={labelCls}>Contract</label>
+            <ul className="space-y-0.5 rounded-lg bg-panelLight/60 px-2 py-1.5 font-mono text-[11px] leading-relaxed text-slate-300">
+              {meta.contract.map((c) => (
+                <li key={c}>{c}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {meta?.traffic !== undefined && (
+          <p className="text-xs text-slate-400">Traffic: ~{meta.traffic} req/s</p>
+        )}
       </div>
 
       <button

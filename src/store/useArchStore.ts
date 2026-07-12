@@ -16,6 +16,7 @@ import type { ZoneMode } from '../model/zones';
 import { TILE_SIZE, snapPoint } from '../model/grid';
 import {
   edgeToFlow,
+  flowToEdge,
   flowToLevel,
   levelToFlow,
   type ComponentNodeData,
@@ -49,6 +50,8 @@ export interface ArchState {
   lens: Lens;
   /** Active zone grouping (bounded contexts / teams) drawn behind the tiles. */
   zones: ZoneMode;
+  /** Active environment view ('none' = design view): stamps versions, dims non-deployed. */
+  env: string;
 
   onNodesChange: (changes: NodeChange<FlowNode>[]) => void;
   onEdgesChange: (changes: EdgeChange<FlowEdge>[]) => void;
@@ -69,6 +72,7 @@ export interface ArchState {
   notify: (message: string) => void;
   setLens: (lens: Lens) => void;
   setZones: (zones: ZoneMode) => void;
+  setEnv: (env: string) => void;
 
   /** Drill into a component, opening (or creating) its inner canvas. */
   enter: (nodeId: string) => void;
@@ -122,6 +126,7 @@ export const useArchStore = create<ArchState>((set, get) => {
     tapConnect: false,
     lens: 'none',
     zones: 'none',
+    env: 'none',
 
     onNodesChange: (changes) => set({ nodes: applyNodeChanges(changes, get().nodes) }),
     onEdgesChange: (changes) => set({ edges: applyEdgeChanges(changes, get().edges) }),
@@ -176,18 +181,14 @@ export const useArchStore = create<ArchState>((set, get) => {
     updateNodeData: (id, patch) =>
       set({ nodes: get().nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)) }),
 
+    // Rebuild through the mapping so kind changes refresh arrows/colour too.
     updateEdge: (id, patch) =>
       set({
-        edges: get().edges.map((e) =>
-          e.id === id
-            ? {
-                ...e,
-                label: patch.label ?? e.label,
-                animated: (patch.kind ?? (e.data?.kind as EdgeKind)) === 'async',
-                data: { ...e.data, kind: patch.kind ?? e.data?.kind },
-              }
-            : e,
-        ),
+        edges: get().edges.map((e) => {
+          if (e.id !== id) return e;
+          const arch = flowToEdge(e);
+          return edgeToFlow({ ...arch, label: patch.label ?? arch.label, kind: patch.kind ?? arch.kind });
+        }),
       }),
 
     deleteNode: (id) => {
@@ -246,6 +247,8 @@ export const useArchStore = create<ArchState>((set, get) => {
     setLens: (lens) => set({ lens }),
 
     setZones: (zones) => set({ zones }),
+
+    setEnv: (env) => set({ env }),
 
     enter: (nodeId) => {
       const { path } = get();

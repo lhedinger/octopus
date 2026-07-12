@@ -11,14 +11,22 @@ storage:
 dependencies:
   - repo: cart
     label: checkout snapshot
+    contract: [GET /carts/:id]
+    traffic: 40
   - repo: inventory
     label: reserve stock
+    contract: [POST /reservations]
+    traffic: 30
   - repo: payments
     kind: async
     label: order.placed
+    contract: [event order.placed v1]
+    traffic: 12
   - repo: shipping
     kind: async
     label: order.paid
+    contract: [event order.paid v1]
+    traffic: 11
 modules:
   - name: Checkout
     description: The order placement saga
@@ -51,4 +59,6 @@ build:
 test:
   coverage: 41
   items: [unit]
-deploy: [staging]
+health: degraded
+environments:
+  staging: { version: 2.1.0 }

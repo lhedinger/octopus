@@ -8,6 +8,7 @@ team: web
 dependencies:
   - repo: gateway
     label: REST
+    traffic: 320
 build:
   status: passing
   items: [lint, type check, bundle]
@@ -15,3 +16,6 @@ test:
   coverage: 78
   items: [unit, visual regression]
 deploy: [preview, production]
+health:
+  status: healthy
+  uptime: 99.9

@@ -4,6 +4,20 @@ import { UNNAMED_SYSTEM } from './assemble';
 
 const isScanned = (meta: Record<string, unknown> | undefined) => meta?.source === 'scan';
 
+type ArchNode = Level['nodes'][number];
+
+/** Stamp the drift aspect: how this scanned node relates to the last import. */
+function withDrift(node: ArchNode, prev: ArchNode | undefined): ArchNode {
+  const status = !prev
+    ? 'added'
+    : prev.label !== node.label || prev.kind !== node.kind || prev.description !== node.description
+      ? 'changed'
+      : undefined;
+  if (!status) return node;
+  const aspects = { ...(node.meta?.aspects as Record<string, unknown> | undefined), drift: { status } };
+  return { ...node, meta: { ...node.meta, aspects } };
+}
+
 /**
  * Merge a fresh scan into the current project, keeping scanned *facts* and
  * human *curation* separate:
@@ -35,10 +49,12 @@ export function mergeScan(current: ProjectDocument, scanned: ProjectDocument): P
     const previous = new Map(cur.nodes.map((n) => [n.id, n]));
     const scanIds = new Set(scan.nodes.map((n) => n.id));
     const nodes = [
-      // Facts from the scan, with curated positions carried over.
+      // Facts from the scan, with curated positions carried over and the
+      // drift aspect stamped (added / changed vs. the previous import).
       ...scan.nodes.map((n) => {
         const prev = previous.get(n.id);
-        return prev ? { ...n, position: prev.position } : n;
+        const stamped = withDrift(n, prev && isScanned(prev.meta) ? prev : undefined);
+        return prev ? { ...stamped, position: prev.position } : stamped;
       }),
       // Manual additions survive; stale scanned nodes (dropped from the scan) do not.
       ...cur.nodes.filter((n) => !scanIds.has(n.id) && !isScanned(n.meta)),

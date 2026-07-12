@@ -24,3 +24,9 @@ test:
   coverage: 58
   items: [unit, relevance suite]
 deploy: [staging, production]
+health:
+  status: healthy
+  uptime: 99.7
+environments:
+  staging: { version: 1.1.0 }
+  production: { version: 1.0.4 }

@@ -62,9 +62,19 @@ export function Canvas() {
     () => rawNodes.map((n) => (n.draggable === false ? n : { ...n, draggable: n.id === selectedNodeId })),
     [rawNodes, selectedNodeId],
   );
-  const edges = useArchStore((s) => s.edges);
+  const rawEdges = useArchStore((s) => s.edges);
   const depth = useArchStore((s) => s.path.length);
   const lens = useArchStore((s) => s.lens);
+  // Under the health lens, edge width encodes traffic (req/s, log scale).
+  const edges = useMemo(() => {
+    if (lens !== 'health') return rawEdges;
+    return rawEdges.map((e) => {
+      const traffic = (e.data?.meta as { traffic?: number } | undefined)?.traffic;
+      if (traffic === undefined) return e;
+      const width = Math.min(9, 1.5 + Math.log10(1 + traffic) * 2.5);
+      return { ...e, style: { ...e.style, stroke: '#38bdf8', strokeWidth: width, opacity: 0.9 } };
+    });
+  }, [rawEdges, lens]);
   const onNodesChange = useArchStore((s) => s.onNodesChange);
   const onEdgesChange = useArchStore((s) => s.onEdgesChange);
   const onConnect = useArchStore((s) => s.onConnect);

@@ -77,10 +77,13 @@ function parseRepoDoc(raw: Record<string, unknown>, where: string): RepoDoc {
     if (!Array.isArray(raw.dependencies)) fail(where, '`dependencies` must be a list');
     doc.dependencies = (raw.dependencies as unknown[]).map((d, i) => {
       if (!isRecord(d) || typeof d.repo !== 'string') return fail(`${where}.dependencies[${i}]`, '`repo` (target id) is required');
+      if (d.traffic !== undefined && typeof d.traffic !== 'number') fail(`${where}.dependencies[${i}].traffic`, 'must be a number (req/s)');
       return {
         repo: d.repo,
         kind: d.kind !== undefined ? oneOf(d.kind, SCAN_EDGE_KINDS, `${where}.dependencies[${i}].kind`) : undefined,
         label: d.label !== undefined ? String(d.label) : undefined,
+        contract: d.contract !== undefined ? asStringList(d.contract, `${where}.dependencies[${i}].contract`) : undefined,
+        traffic: d.traffic as number | undefined,
       };
     });
   }
@@ -114,14 +117,38 @@ function parseRepoDoc(raw: Record<string, unknown>, where: string): RepoDoc {
     aspects.test = parseAspect(t, `${where}.test`);
   }
   if (raw.deploy !== undefined) aspects.deploy = parseAspect(raw.deploy, `${where}.deploy`);
+  if (raw.health !== undefined) {
+    const h = isRecord(raw.health) ? { ...(raw.health as Record<string, unknown>) } : raw.health;
+    // `uptime` is the friendly YAML name for the health aspect's score.
+    if (isRecord(h) && h.uptime !== undefined) {
+      h.score = h.uptime;
+      delete h.uptime;
+    }
+    aspects.health = parseAspect(h, `${where}.health`);
+  }
   // The owning team doubles as the ownership aspect (badge + lens).
   if (doc.team) aspects.ownership = { status: doc.team, ...aspects.ownership };
+
+  if (raw.environments !== undefined) {
+    if (!isRecord(raw.environments)) fail(`${where}.environments`, 'must be a map of env name → { version?, status? }');
+    doc.environments = {};
+    for (const [env, v] of Object.entries(raw.environments as Record<string, unknown>)) {
+      if (!isRecord(v)) return fail(`${where}.environments.${env}`, 'must be { version?, status? }');
+      doc.environments[env] = {
+        version: v.version !== undefined ? String(v.version) : undefined,
+        status: v.status !== undefined ? String(v.status) : undefined,
+      };
+    }
+    // Environments imply the deploy aspect when it wasn't given explicitly.
+    if (!aspects.deploy) aspects.deploy = { items: Object.keys(doc.environments) };
+  }
   if (Object.keys(aspects).length > 0) doc.aspects = aspects;
   return doc;
 }
 
-/** Normalize one aspect: a plain string list is shorthand for `items`. */
+/** Normalize one aspect: a string is shorthand for `status`, a list for `items`. */
 function parseAspect(v: unknown, where: string): ScanAspectData {
+  if (typeof v === 'string') return { status: v };
   if (Array.isArray(v)) return { items: asStringList(v, where) };
   if (!isRecord(v)) return fail(where, 'must be a list of items or { status?, score?, items? }');
   const a: ScanAspectData = {};

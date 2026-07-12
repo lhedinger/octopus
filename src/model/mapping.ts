@@ -49,6 +49,8 @@ export function edgeToFlow(edge: ArchEdge): FlowEdge {
     animated: edge.kind === 'async',
     markerEnd: flow ? { type: MarkerType.ArrowClosed, color: '#38bdf8', width: 18, height: 18 } : undefined,
     style: flow ? { stroke: '#38bdf8', strokeWidth: 2 } : undefined,
+    // Generous touch target: edges are tappable first-class citizens.
+    interactionWidth: 44,
     data: { kind: edge.kind, meta: edge.meta },
   };
 }

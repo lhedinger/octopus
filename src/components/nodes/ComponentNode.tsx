@@ -7,17 +7,17 @@ import { useArchStore } from '../../store/useArchStore';
 import { canConnect } from '../../model/relationships';
 import { STORAGE_PALETTE } from '../../model/palette';
 import { TILE_SIZE, TILE_PADDING } from '../../model/grid';
-import { ASPECTS, BADGE_KINDS, aspectsOf, lensMetric } from '../../model/aspects';
+import { ASPECTS, BADGE_KINDS, aspectByKey, aspectsOf, lensMetric } from '../../model/aspects';
 
 const LABEL_HEIGHT = 20;
 const iconBtn = 'flex h-8 w-8 items-center justify-center rounded-lg text-base text-slate-200 transition hover:bg-white/10';
 
-/** RTS-style status chips on the tile: one per registered aspect. */
+/** RTS-style status chips on the tile: one per badge-carrying aspect. */
 function FacetBadges({ meta, onOpen }: { meta?: Record<string, unknown>; onOpen: () => void }) {
   const data = aspectsOf(meta);
   return (
     <div className="nodrag absolute -top-2 left-1/2 z-10 flex -translate-x-1/2 gap-0.5">
-      {ASPECTS.map((a) => (
+      {ASPECTS.filter((a) => a.badge !== false).map((a) => (
         <button
           key={a.key}
           title={a.title}
@@ -39,7 +39,9 @@ function FacetBadges({ meta, onOpen }: { meta?: Record<string, unknown>; onOpen:
 /** Anchored card with the details behind the badges. */
 function FacetFactsCard({ meta, onClose }: { meta?: Record<string, unknown>; onClose: () => void }) {
   const data = aspectsOf(meta);
-  const sections = ASPECTS.map((a) => ({
+  // Badge aspects always show; lens-only aspects (health, drift) only with data.
+  const sections = ASPECTS.filter((a) => a.badge !== false || data[a.key]).map((a) => ({
+    key: a.key,
     title: `${a.icon} ${a.title}`,
     headline: a.headline(data[a.key]),
     items: data[a.key]?.items,
@@ -52,17 +54,29 @@ function FacetFactsCard({ meta, onClose }: { meta?: Record<string, unknown>; onC
       </div>
       <div className="space-y-1.5">
         {sections.map((s) => (
-          <div key={s.title}>
+          <div key={s.key}>
             <div className="flex items-baseline justify-between text-xs text-slate-200">
               <span>{s.title}</span>
               <span className="font-semibold">{s.headline}</span>
             </div>
             {s.items && s.items.length > 0 && (
-              <ul className="mt-0.5 space-y-0.5 pl-4 text-[11px] leading-tight text-slate-400">
-                {s.items.map((i) => (
-                  <li key={i} className="list-disc">{i}</li>
-                ))}
-              </ul>
+              s.key === 'build' ? (
+                // The pipeline reads as a mini-flow: stage → stage → stage.
+                <div className="mt-1 flex flex-wrap items-center gap-0.5 text-[10px] leading-tight text-slate-300">
+                  {s.items.map((i, idx) => (
+                    <span key={i} className="flex items-center gap-0.5">
+                      {idx > 0 && <span className="text-accent">→</span>}
+                      <span className="rounded bg-panelLight px-1 py-0.5">{i}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <ul className="mt-0.5 space-y-0.5 pl-4 text-[11px] leading-tight text-slate-400">
+                  {s.items.map((i) => (
+                    <li key={i} className="list-disc">{i}</li>
+                  ))}
+                </ul>
+              )
             )}
           </div>
         ))}
@@ -78,6 +92,7 @@ export function ComponentNode({ id, data }: NodeProps<FlowNode>) {
   const sourceKind = useArchStore((s) => s.nodes.find((n) => n.id === s.connectSource)?.data.kind);
   const selected = useArchStore((s) => s.selectedNodeId === id);
   const lens = useArchStore((s) => s.lens);
+  const env = useArchStore((s) => s.env);
   const updateNodeData = useArchStore((s) => s.updateNodeData);
   const addStorage = useArchStore((s) => s.addStorage);
   const deleteNode = useArchStore((s) => s.deleteNode);
@@ -96,6 +111,15 @@ export function ComponentNode({ id, data }: NodeProps<FlowNode>) {
   const metric = hasBadges ? lensMetric(lens, meta) : undefined;
   const lensDimmed = lens !== 'none' && !hasBadges;
 
+  // Health is the one always-on ambient signal (RTS unit health).
+  const health = hasBadges ? aspectsOf(meta).health : undefined;
+
+  // Environment view: stamp the deployed version, dim what isn't deployed there.
+  const envs = meta?.environments as Record<string, { version?: string; status?: string }> | undefined;
+  const envInfo = env !== 'none' && hasBadges ? envs?.[env] : undefined;
+  const envDimmed = env !== 'none' && hasBadges && !envInfo;
+  const envColor = envInfo?.status === 'degraded' ? '#fbbf24' : envInfo?.status === 'down' ? '#f87171' : '#34d399';
+
   // Attachments render at half a tile; free components fill a whole tile.
   const tile = attached ? TILE_SIZE / 2 : TILE_SIZE;
   const pad = attached ? 4 : TILE_PADDING;
@@ -112,12 +136,29 @@ export function ComponentNode({ id, data }: NodeProps<FlowNode>) {
         isSource ? 'ring-4 ring-accent/60' : '',
         isValidTarget ? 'ring-2 ring-emerald-400/50' : '',
         tapConnect && !attached ? 'cursor-crosshair' : '',
-        lensDimmed ? 'opacity-30' : '',
+        lensDimmed || envDimmed ? 'opacity-30' : '',
       ].join(' ')}
     >
       {attached && <span className="absolute -top-2.5 left-1/2 h-2.5 w-px -translate-x-1/2 bg-white/25" />}
 
       {hasBadges && <FacetBadges meta={meta} onOpen={() => setFactsOpen((v) => !v)} />}
+
+      {health?.status && (
+        <span
+          aria-label={`health: ${health.status}`}
+          style={{ backgroundColor: aspectByKey('health')!.color(health) }}
+          className="absolute -right-1 -top-1 z-10 h-3 w-3 rounded-full ring-2 ring-panel"
+        />
+      )}
+
+      {envInfo && (
+        <span
+          style={{ backgroundColor: envColor }}
+          className="pointer-events-none absolute -bottom-2 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full px-1.5 py-px text-[10px] font-bold leading-tight text-panel shadow"
+        >
+          {envInfo.version ?? '✓'}
+        </span>
+      )}
 
       {/* Active lens: colour ring + the metric stamped on the tile. */}
       {metric && (

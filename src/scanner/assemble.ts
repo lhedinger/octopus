@@ -151,7 +151,10 @@ export function assembleProject(docs: ScanDoc[]): ProjectDocument {
         target: targetId,
         label: dep.label,
         kind: dep.kind ?? 'sync',
-        meta: scanMeta(doc.repo),
+        meta: scanMeta(doc.repo, {
+          ...(dep.contract ? { contract: dep.contract } : undefined),
+          ...(dep.traffic !== undefined ? { traffic: dep.traffic } : undefined),
+        }),
       });
     }
   }
@@ -196,6 +199,7 @@ export function assembleProject(docs: ScanDoc[]): ProjectDocument {
         meta: scanMeta(doc.repo, {
           ...(doc.context ? { context: doc.context } : undefined),
           ...(doc.team ? { team: doc.team } : undefined),
+          ...(doc.environments ? { environments: doc.environments } : undefined),
           ...(doc.aspects ? { aspects: doc.aspects } : undefined),
         }),
       });

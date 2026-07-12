@@ -14,12 +14,18 @@ dependencies:
   # Not scanned — appears on the map as an external-system stub.
   - repo: stripe
     label: charge API
+    contract: [POST /v1/charges, POST /v1/refunds]
+    traffic: 14
   - repo: orders
     kind: async
     label: payment.settled
+    contract: [event payment.settled v1]
+    traffic: 12
   - repo: notifications
     kind: async
     label: payment.settled
+    contract: [event payment.settled v1]
+    traffic: 12
 modules:
   - name: Charging
     description: Card charges and idempotency
@@ -56,4 +62,9 @@ build:
 test:
   coverage: 87
   items: [unit, contract, e2e smoke]
-deploy: [staging, production (canary)]
+health:
+  status: healthy
+  uptime: 99.95
+environments:
+  staging: { version: 1.8.0 }
+  production: { version: 1.7.2 }

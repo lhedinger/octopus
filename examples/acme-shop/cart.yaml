@@ -24,3 +24,9 @@ test:
   coverage: 70
   items: [unit, contract]
 deploy: [staging, production]
+health:
+  status: healthy
+  uptime: 99.9
+environments:
+  staging: { version: 4.2.0 }
+  production: { version: 4.2.0 }

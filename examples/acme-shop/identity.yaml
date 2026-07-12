@@ -30,3 +30,9 @@ test:
   coverage: 91
   items: [unit, contract, security suite]
 deploy: [staging, production]
+health:
+  status: healthy
+  uptime: 99.99
+environments:
+  staging: { version: 5.0.1 }
+  production: { version: 5.0.1 }

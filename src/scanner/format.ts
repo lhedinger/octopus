@@ -39,6 +39,10 @@ export interface ScanDependency {
   repo: string;
   kind?: ScanEdgeKind;
   label?: string;
+  /** The interface this edge carries: endpoints, event names, versions. */
+  contract?: string[];
+  /** Approximate request/event rate (req/s) — rendered under the health lens. */
+  traffic?: number;
 }
 
 export interface ScanBehaviorBlock {
@@ -81,6 +85,8 @@ export interface RepoDoc {
   context?: string;
   /** Owning team — "you build it you run it" (zones + ownership lens). */
   team?: string;
+  /** Per-environment deployment state (version, status). */
+  environments?: Record<string, { version?: string; status?: string }>;
   storage?: ScanStorage[];
   dependencies?: ScanDependency[];
   /** The repo's internal subdomains — the component's interior canvas. */

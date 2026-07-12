@@ -22,6 +22,8 @@ export interface AspectProvider {
   title: string;
   icon: string;
   lensLabel: string;
+  /** False for aspects that don't join the tile badge strip (lens/dot only). */
+  badge?: boolean;
   /** Badge / lens colour for this aspect's data. */
   color(d: AspectData | undefined): string;
   /** Short metric stamped on the tile under the lens. */
@@ -89,6 +91,33 @@ export const ASPECTS: AspectProvider[] = [
     headline: (d) => (d?.items?.length ? `${d.items.length} env${d.items.length > 1 ? 's' : ''}` : 'no data'),
   },
 ];
+
+const HEALTH_COLORS: Record<string, string> = { healthy: GREEN, degraded: AMBER, down: RED };
+
+// Runtime health ("run it"): ambient dot on the tile + lens; not a badge chip.
+ASPECTS.push({
+  key: 'health',
+  title: 'Health',
+  icon: '❤️',
+  lensLabel: 'Health lens',
+  badge: false,
+  color: (d) => (d?.status ? HEALTH_COLORS[d.status] ?? GRAY : GRAY),
+  metric: (d) => d?.status ?? 'no data',
+  headline: (d) =>
+    d?.status ? `${d.status}${d.score !== undefined ? ` · ${d.score}% uptime` : ''}` : 'no data',
+});
+
+// Scan drift: written by mergeScan on re-import (added / changed); lens only.
+ASPECTS.push({
+  key: 'drift',
+  title: 'Drift',
+  icon: '🔀',
+  lensLabel: 'Scan drift lens',
+  badge: false,
+  color: (d) => (d?.status === 'added' ? GREEN : d?.status === 'changed' ? AMBER : GRAY),
+  metric: (d) => d?.status ?? 'unchanged',
+  headline: (d) => d?.status ?? 'unchanged since last scan',
+});
 
 export function aspectByKey(key: string): AspectProvider | undefined {
   return ASPECTS.find((a) => a.key === key);

@@ -28,3 +28,9 @@ test:
   coverage: 64
   items: [unit, pricing rules suite]
 deploy: [staging, production]
+health:
+  status: healthy
+  uptime: 99.9
+environments:
+  staging: { version: 2.4.0 }
+  production: { version: 2.3.9 }

@@ -64,6 +64,48 @@ describe('scanner', () => {
     expect((node.meta?.aspects as Record<string, { status?: string }>).ownership.status).toBe('payments-squad');
   });
 
+  it('carries contracts and traffic on dependency edges', () => {
+    const project = scan(
+      'octopus: 1\nrepo: a\ndependencies:\n  - repo: b\n    contract: [GET /x, POST /y]\n    traffic: 42',
+    );
+    const edge = project.levels[ROOT_PATH].edges[0];
+    expect(edge.meta?.contract).toEqual(['GET /x', 'POST /y']);
+    expect(edge.meta?.traffic).toBe(42);
+  });
+
+  it('parses health (string or structured) and environments', () => {
+    const project = scan(
+      'octopus: 1\nrepo: a\nhealth: degraded\nenvironments:\n  staging: { version: 1.2.0 }\n  production: { version: 1.1.9, status: down }',
+    );
+    const node = project.levels[ROOT_PATH].nodes[0];
+    const aspects = node.meta?.aspects as Record<string, { status?: string; score?: number; items?: string[] }>;
+    expect(aspects.health.status).toBe('degraded');
+    // Environments imply the deploy aspect and land on meta for the env view.
+    expect(aspects.deploy.items).toEqual(['staging', 'production']);
+    expect((node.meta?.environments as Record<string, { version?: string }>).staging.version).toBe('1.2.0');
+
+    const structured = scan('octopus: 1\nrepo: b\nhealth: { status: healthy, uptime: 99.9 }');
+    const h = (structured.levels[ROOT_PATH].nodes[0].meta?.aspects as Record<string, { score?: number }>).health;
+    expect(h.score).toBe(99.9);
+  });
+
+  it('stamps the drift aspect on re-import', () => {
+    const first = mergeScan(
+      { version: 2, id: 'p', name: 'P', levels: { '': { nodes: [], edges: [] } } },
+      scan('octopus: 1\nrepo: a\nname: Alpha', 'octopus: 1\nrepo: b'),
+    );
+    const drift = (id: string, p: typeof first) =>
+      ((p.levels[ROOT_PATH].nodes.find((n) => n.id === repoNodeId(id))?.meta?.aspects as Record<string, { status?: string }>) ?? {})
+        .drift?.status;
+    expect(drift('a', first)).toBe('added');
+
+    // Re-scan: a renamed, b unchanged, c new.
+    const second = mergeScan(first, scan('octopus: 1\nrepo: a\nname: Alpha2', 'octopus: 1\nrepo: b', 'octopus: 1\nrepo: c'));
+    expect(drift('a', second)).toBe('changed');
+    expect(drift('b', second)).toBeUndefined();
+    expect(drift('c', second)).toBe('added');
+  });
+
   it('accepts custom aspects through the generic aspects map', () => {
     const [doc] = parseScanDocs(
       'octopus: 1\nrepo: a\naspects:\n  security: { status: audited, items: [SAST, secrets scan] }\n  docs: { score: 40 }',

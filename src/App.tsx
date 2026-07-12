@@ -6,6 +6,7 @@ import { Canvas } from './components/Canvas';
 import { Inspector } from './components/Inspector';
 import { Breadcrumb } from './components/Breadcrumb';
 import { LensBar } from './components/LensBar';
+import { EnvBar } from './components/EnvBar';
 import { useArchStore } from './store/useArchStore';
 import { debounce, saveProject } from './store/persistence';
 
@@ -77,6 +78,7 @@ export default function App() {
         <Breadcrumb />
         <Inspector />
         <LensBar />
+        <EnvBar />
         <Palette />
       </div>
     </ReactFlowProvider>

@@ -41,6 +41,8 @@ dependencies:           # outgoing edges on the system map
   - repo: accounts      # target repo id (stub created if not scanned)
     kind: sync          # sync | async | data   (default: sync)
     label: charge lookup
+    contract: [GET /accounts/:id]   # shown when the edge is tapped
+    traffic: 42                     # req/s — edge width under the health lens
 
 modules:                # the repo's grouped subdomains — its interior canvas
   - name: Charging
@@ -64,6 +66,12 @@ test:                   # tile badge + Test lens
   coverage: 87          # percent, 0–100 (alias for score)
   items: [unit, contract]
 deploy: [staging, production]   # tile badge + Deploy lens (list = environments)
+
+health: degraded        # healthy | degraded | down — always-on tile dot + lens
+                        # (or { status, uptime: 99.9 })
+environments:           # per-env deployment — drives the environment switcher
+  staging: { version: 1.2.0 }
+  production: { version: 1.1.9, status: degraded }
 
 aspects:                # generic lifecycle aspects — same normalized shape:
   security:             #   { status?, score? (0–100), items? }

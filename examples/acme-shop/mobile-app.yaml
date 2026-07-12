@@ -8,6 +8,7 @@ team: web
 dependencies:
   - repo: gateway
     label: GraphQL
+    traffic: 210
 build:
   status: passing
   items: [lint, unit tests, app bundles]
@@ -15,3 +16,6 @@ test:
   coverage: 62
   items: [unit, snapshot]
 deploy: [beta, app stores]
+health:
+  status: healthy
+  uptime: 99.8
