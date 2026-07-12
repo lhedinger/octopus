@@ -61,6 +61,14 @@ export interface ScanModule {
 
 export type ScanBuildStatus = 'passing' | 'failing' | 'unknown';
 
+/** Normalized per-aspect data (see model/aspects.ts for how it renders). */
+export interface ScanAspectData {
+  status?: string;
+  /** Numeric metric 0–100 (e.g. test coverage). */
+  score?: number;
+  items?: string[];
+}
+
 /** One scanned repo/service. */
 export interface RepoDoc {
   octopus: number;
@@ -76,13 +84,12 @@ export interface RepoDoc {
   /** The repo's internal subdomains — the component's interior canvas. */
   modules?: ScanModule[];
   /**
-   * Build/test/deploy state, surfaced as tile badges and map lenses. YAML
-   * accepts a plain string list as shorthand (items / environments); the
-   * parser normalizes to the structured form.
+   * Lifecycle aspects, surfaced as tile badges / map lenses / facts cards.
+   * YAML offers shorthands (`build:`, `test:`, `deploy:` — plain lists or
+   * structured) plus a generic `aspects:` map for everything else; the parser
+   * normalizes all of them into this record.
    */
-  build?: { status?: ScanBuildStatus; items?: string[] };
-  test?: { coverage?: number; items?: string[] };
-  deploy?: { environments?: string[] };
+  aspects?: Record<string, ScanAspectData>;
 }
 
 /** Optional system-level document naming the whole map. */

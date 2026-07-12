@@ -56,6 +56,20 @@ describe('scanner', () => {
     expect(() => parseScanDocs('octopus: 1\nrepo: a\nbuild: { status: green }')).toThrow(/one of/);
   });
 
+  it('accepts custom aspects through the generic aspects map', () => {
+    const [doc] = parseScanDocs(
+      'octopus: 1\nrepo: a\naspects:\n  security: { status: audited, items: [SAST, secrets scan] }\n  docs: { score: 40 }',
+    );
+    expect((doc as { aspects?: Record<string, unknown> }).aspects).toEqual({
+      security: { status: 'audited', items: ['SAST', 'secrets scan'] },
+      docs: { score: 40 },
+    });
+    // Unknown aspect keys survive assembly onto the node, unrendered until a provider exists.
+    const project = scan('octopus: 1\nrepo: a\naspects:\n  security: { status: audited }');
+    const node = project.levels[ROOT_PATH].nodes[0];
+    expect((node.meta?.aspects as Record<string, { status?: string }>).security.status).toBe('audited');
+  });
+
   it('assembles repos into a named project with deterministic ids', () => {
     const a = scan(PAYMENTS, 'octopus: 1\nsystem: ACME');
     const b = scan(PAYMENTS, 'octopus: 1\nsystem: ACME');
@@ -79,12 +93,12 @@ describe('scanner', () => {
     const db = root.nodes.find((n) => n.kind === 'database')!;
     expect(db.parentId).toBe(repoNodeId('payments'));
 
-    // Build/test/deploy are tile facts (badges/lenses), not interior tiles.
+    // Build/test/deploy normalize into the generic aspects record on the node.
     const service = root.nodes.find((n) => n.id === repoNodeId('payments'))!;
-    const facets = service.meta?.facets as { build?: { items?: string[] }; test?: { coverage?: number }; deploy?: { environments?: string[] } };
-    expect(facets.build?.items).toContain('lint');
-    expect(facets.test?.coverage).toBe(87);
-    expect(facets.deploy?.environments).toEqual(['staging', 'production']);
+    const aspects = service.meta?.aspects as Record<string, { status?: string; score?: number; items?: string[] }>;
+    expect(aspects.build?.items).toContain('lint');
+    expect(aspects.test?.score).toBe(87);
+    expect(aspects.deploy?.items).toEqual(['staging', 'production']);
 
     // The interior shows the repo's modules with dependency arrows.
     const interior = project.levels[repoNodeId('payments')];
@@ -127,6 +141,35 @@ describe('scanner', () => {
     expect(migrated.levels['ms1'].nodes[0].meta?.fixed).toBeUndefined();
     expect(migrated.levels['ms1/f-test']).toBeUndefined(); // anchored to a stripped tile
     expect(migrated.levels['ms1/f-behavior'].nodes).toHaveLength(1); // flow level survives
+  });
+
+  it('migrates legacy meta.facets to normalized meta.aspects', () => {
+    const legacy = {
+      version: 2 as const,
+      id: 'p1',
+      name: 'Legacy',
+      levels: {
+        '': {
+          nodes: [
+            {
+              id: 's1',
+              kind: 'microservice' as const,
+              label: 'Svc',
+              position: { x: 0, y: 0 },
+              meta: { facets: { build: { status: 'passing' }, test: { coverage: 70, items: ['unit'] }, deploy: { environments: ['prod'] } } },
+            },
+          ],
+          edges: [],
+        },
+      },
+    };
+    const meta = migrateProject(legacy).levels[''].nodes[0].meta!;
+    expect(meta.facets).toBeUndefined();
+    expect(meta.aspects).toEqual({
+      build: { status: 'passing', items: undefined },
+      test: { score: 70, items: ['unit'] },
+      deploy: { items: ['prod'] },
+    });
   });
 
   it('lays out callers to the left of what they call', () => {

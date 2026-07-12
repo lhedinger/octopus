@@ -60,9 +60,14 @@ build:                  # tile badge + Build lens
   status: passing       # passing | failing | unknown
   items: [lint, unit tests, docker image]
 test:                   # tile badge + Test lens
-  coverage: 87          # percent, 0–100
+  coverage: 87          # percent, 0–100 (alias for score)
   items: [unit, contract]
 deploy: [staging, production]   # tile badge + Deploy lens (list = environments)
+
+aspects:                # generic lifecycle aspects — same normalized shape:
+  security:             #   { status?, score? (0–100), items? }
+    status: audited     # unknown keys are stored on the node and start
+    items: [SAST, secrets scan]   # rendering once a provider is registered
 ```
 
 `build` / `test` / `deploy` appear as **badges on the component tile** (tap one

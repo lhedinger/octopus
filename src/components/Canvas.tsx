@@ -14,7 +14,7 @@ import '@xyflow/react/dist/style.css';
 import { useArchStore } from '../store/useArchStore';
 import { canConnect } from '../model/relationships';
 import { TILE_SIZE } from '../model/grid';
-import { BADGE_KINDS, lensMetric } from '../model/facets';
+import { BADGE_KINDS, lensMetric } from '../model/aspects';
 import type { FlowNode } from '../model/mapping';
 import { ComponentNode } from './nodes/ComponentNode';
 

@@ -11,7 +11,7 @@ import type { ArchNode, ComponentKind, EdgeKind, Level, ProjectDocument } from '
 import { ROOT_PATH } from '../model/types';
 import { defaultLabel } from '../model/palette';
 import { canConnect, isBehavior } from '../model/relationships';
-import type { Lens } from '../model/facets';
+import type { Lens } from '../model/aspects';
 import { TILE_SIZE, snapPoint } from '../model/grid';
 import {
   edgeToFlow,

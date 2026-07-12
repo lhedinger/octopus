@@ -6,6 +6,7 @@ import {
   SCAN_FORMAT_VERSION,
   SCAN_STORAGE_KINDS,
   type RepoDoc,
+  type ScanAspectData,
   type ScanBehaviorBlock,
   type ScanBuildStatus,
   type ScanDoc,
@@ -88,38 +89,49 @@ function parseRepoDoc(raw: Record<string, unknown>, where: string): RepoDoc {
     doc.modules = (raw.modules as unknown[]).map((m, i) => parseModule(m, `${where}.modules[${i}]`));
   }
 
-  // A plain string list is shorthand: items for build/test, environments for deploy.
+  // Aspects: the generic `aspects:` map plus build/test/deploy shorthands,
+  // all normalized to { status?, score?, items? }.
+  const aspects: Record<string, ScanAspectData> = {};
+  if (raw.aspects !== undefined) {
+    if (!isRecord(raw.aspects)) fail(`${where}.aspects`, 'must be a map of aspect name → data');
+    for (const [key, value] of Object.entries(raw.aspects as Record<string, unknown>)) {
+      aspects[key] = parseAspect(value, `${where}.aspects.${key}`);
+    }
+  }
   if (raw.build !== undefined) {
-    if (Array.isArray(raw.build)) doc.build = { items: asStringList(raw.build, `${where}.build`) };
-    else if (isRecord(raw.build)) {
-      doc.build = {
-        status: raw.build.status !== undefined ? oneOf(raw.build.status, BUILD_STATUSES, `${where}.build.status`) : undefined,
-        items: raw.build.items !== undefined ? asStringList(raw.build.items, `${where}.build.items`) : undefined,
-      };
-    } else fail(`${where}.build`, 'must be a list of items or { status?, items? }');
+    const a = parseAspect(raw.build, `${where}.build`);
+    if (a.status !== undefined) oneOf(a.status, BUILD_STATUSES, `${where}.build.status`);
+    aspects.build = a;
   }
   if (raw.test !== undefined) {
-    if (Array.isArray(raw.test)) doc.test = { items: asStringList(raw.test, `${where}.test`) };
-    else if (isRecord(raw.test)) {
-      const coverage = raw.test.coverage;
-      if (coverage !== undefined && (typeof coverage !== 'number' || coverage < 0 || coverage > 100)) {
-        fail(`${where}.test.coverage`, 'must be a number between 0 and 100');
-      }
-      doc.test = {
-        coverage: coverage as number | undefined,
-        items: raw.test.items !== undefined ? asStringList(raw.test.items, `${where}.test.items`) : undefined,
-      };
-    } else fail(`${where}.test`, 'must be a list of items or { coverage?, items? }');
+    const t = isRecord(raw.test) ? { ...(raw.test as Record<string, unknown>) } : raw.test;
+    // `coverage` is the friendly YAML name for the test aspect's score.
+    if (isRecord(t) && t.coverage !== undefined) {
+      t.score = t.coverage;
+      delete t.coverage;
+    }
+    aspects.test = parseAspect(t, `${where}.test`);
   }
-  if (raw.deploy !== undefined) {
-    if (Array.isArray(raw.deploy)) doc.deploy = { environments: asStringList(raw.deploy, `${where}.deploy`) };
-    else if (isRecord(raw.deploy)) {
-      doc.deploy = {
-        environments: raw.deploy.environments !== undefined ? asStringList(raw.deploy.environments, `${where}.deploy.environments`) : undefined,
-      };
-    } else fail(`${where}.deploy`, 'must be a list of environments or { environments? }');
-  }
+  if (raw.deploy !== undefined) aspects.deploy = parseAspect(raw.deploy, `${where}.deploy`);
+  if (Object.keys(aspects).length > 0) doc.aspects = aspects;
   return doc;
+}
+
+/** Normalize one aspect: a plain string list is shorthand for `items`. */
+function parseAspect(v: unknown, where: string): ScanAspectData {
+  if (Array.isArray(v)) return { items: asStringList(v, where) };
+  if (!isRecord(v)) return fail(where, 'must be a list of items or { status?, score?, items? }');
+  const a: ScanAspectData = {};
+  if (v.status !== undefined) {
+    if (typeof v.status !== 'string') fail(`${where}.status`, 'must be a string');
+    a.status = v.status as string;
+  }
+  if (v.score !== undefined) {
+    if (typeof v.score !== 'number' || v.score < 0 || v.score > 100) fail(`${where}.score`, 'must be a number between 0 and 100');
+    a.score = v.score as number;
+  }
+  if (v.items !== undefined) a.items = asStringList(v.items, `${where}.items`);
+  return a;
 }
 
 function asFlowList(v: unknown, where: string): ScanFlowEdge[] {

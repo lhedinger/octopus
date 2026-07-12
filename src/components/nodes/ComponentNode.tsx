@@ -7,34 +7,29 @@ import { useArchStore } from '../../store/useArchStore';
 import { canConnect } from '../../model/relationships';
 import { STORAGE_PALETTE } from '../../model/palette';
 import { TILE_SIZE, TILE_PADDING } from '../../model/grid';
-import { BADGE_KINDS, buildColor, coverageColor, deployColor, facetInfo, lensMetric } from '../../model/facets';
+import { ASPECTS, BADGE_KINDS, aspectsOf, lensMetric } from '../../model/aspects';
 
 const LABEL_HEIGHT = 20;
 const iconBtn = 'flex h-8 w-8 items-center justify-center rounded-lg text-base text-slate-200 transition hover:bg-white/10';
 
-/** RTS-style status chips on the tile: build / test / deploy at a glance. */
+/** RTS-style status chips on the tile: one per registered aspect. */
 function FacetBadges({ meta, onOpen }: { meta?: Record<string, unknown>; onOpen: () => void }) {
-  const f = facetInfo(meta);
-  const chips = [
-    { icon: '🔨', title: 'Build', color: buildColor(f.build?.status) },
-    { icon: '🧪', title: 'Test', color: coverageColor(f.test?.coverage) },
-    { icon: '🚀', title: 'Deploy', color: deployColor(f.deploy?.environments) },
-  ];
+  const data = aspectsOf(meta);
   return (
     <div className="nodrag absolute -top-2 left-1/2 z-10 flex -translate-x-1/2 gap-0.5">
-      {chips.map((c) => (
+      {ASPECTS.map((a) => (
         <button
-          key={c.title}
-          title={c.title}
-          aria-label={`${c.title} status`}
+          key={a.key}
+          title={a.title}
+          aria-label={`${a.title} status`}
           onClick={(e) => {
             e.stopPropagation();
             onOpen();
           }}
-          style={{ backgroundColor: c.color }}
+          style={{ backgroundColor: a.color(data[a.key]) }}
           className="flex h-4 w-4 items-center justify-center rounded-full text-[8px] leading-none shadow ring-1 ring-black/40 transition hover:scale-125"
         >
-          {c.icon}
+          {a.icon}
         </button>
       ))}
     </div>
@@ -43,12 +38,12 @@ function FacetBadges({ meta, onOpen }: { meta?: Record<string, unknown>; onOpen:
 
 /** Anchored card with the details behind the badges. */
 function FacetFactsCard({ meta, onClose }: { meta?: Record<string, unknown>; onClose: () => void }) {
-  const f = facetInfo(meta);
-  const sections: { title: string; headline: string; items?: string[] }[] = [
-    { title: '🔨 Build', headline: f.build?.status ?? 'no data', items: f.build?.items },
-    { title: '🧪 Test', headline: f.test?.coverage !== undefined ? `${f.test.coverage}% coverage` : 'no data', items: f.test?.items },
-    { title: '🚀 Deploy', headline: f.deploy?.environments?.length ? f.deploy.environments.join(' · ') : 'no data' },
-  ];
+  const data = aspectsOf(meta);
+  const sections = ASPECTS.map((a) => ({
+    title: `${a.icon} ${a.title}`,
+    headline: a.headline(data[a.key]),
+    items: data[a.key]?.items,
+  }));
   return (
     <div className="nodrag w-56 rounded-xl border border-white/10 bg-panel/95 p-2 text-left shadow-xl backdrop-blur">
       <div className="mb-1 flex items-center justify-between">

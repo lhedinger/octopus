@@ -22,12 +22,34 @@ export function isProject(value: unknown): value is ProjectDocument {
 /** Facets that used to be seeded as interior tiles; now surfaced as badges. */
 const RETIRED_FACETS: ComponentKind[] = ['test', 'build', 'deploy'];
 
+/** meta.facets (pre-aspect-platform shape) → normalized meta.aspects. */
+interface LegacyFacets {
+  build?: { status?: string; items?: string[] };
+  test?: { coverage?: number; items?: string[] };
+  deploy?: { environments?: string[] };
+}
+
+function migrateMeta(meta?: Record<string, unknown>): Record<string, unknown> | undefined {
+  if (!meta?.facets) return meta;
+  const f = meta.facets as LegacyFacets;
+  return {
+    ...meta,
+    facets: undefined,
+    aspects: {
+      ...(f.build ? { build: { status: f.build.status, items: f.build.items } } : undefined),
+      ...(f.test ? { test: { score: f.test.coverage, items: f.test.items } } : undefined),
+      ...(f.deploy ? { deploy: { items: f.deploy.environments } } : undefined),
+    },
+  };
+}
+
 /**
  * Bring an older project up to date:
  * - build/test/deploy stopped being drill-in tiles (their state lives on the
  *   component as badges/lenses now) — strip them and prune their levels;
  * - the fixed Behavior facet became a regular module — convert it in place
- *   (same id, so the flow level beneath it survives).
+ *   (same id, so the flow level beneath it survives);
+ * - meta.facets became the normalized meta.aspects.
  */
 export function migrateProject(project: ProjectDocument): ProjectDocument {
   const levels: Record<string, Level> = {};
@@ -37,8 +59,8 @@ export function migrateProject(project: ProjectDocument): ProjectDocument {
         .filter((n) => !(RETIRED_FACETS.includes(n.kind) && n.meta?.fixed === true))
         .map((n) =>
           n.kind === 'behavior' && n.meta?.fixed === true
-            ? { ...n, kind: 'module' as ComponentKind, meta: { ...n.meta, fixed: undefined } }
-            : n,
+            ? { ...n, kind: 'module' as ComponentKind, meta: migrateMeta({ ...n.meta, fixed: undefined }) }
+            : { ...n, meta: migrateMeta(n.meta) },
         ),
       edges: level.edges,
     };

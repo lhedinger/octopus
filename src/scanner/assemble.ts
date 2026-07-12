@@ -187,17 +187,16 @@ export function assembleProject(docs: ScanDoc[]): ProjectDocument {
         });
         return;
       }
-      const facets =
-        doc.build || doc.test || doc.deploy
-          ? { facets: { build: doc.build, test: doc.test, deploy: doc.deploy } }
-          : undefined;
       nodes.push({
         id,
         kind: doc.kind ?? 'microservice',
         label: doc.name ?? doc.repo,
         description: doc.description,
         position,
-        meta: scanMeta(doc.repo, { ...(doc.context ? { context: doc.context } : undefined), ...facets }),
+        meta: scanMeta(doc.repo, {
+          ...(doc.context ? { context: doc.context } : undefined),
+          ...(doc.aspects ? { aspects: doc.aspects } : undefined),
+        }),
       });
       (doc.storage ?? []).forEach((s, slot) => {
         const name = s.name ?? defaultLabel(s.kind);
