@@ -51,6 +51,7 @@ function buildModuleFlow(doc: RepoDoc, mod: ScanModule, levels: Record<string, L
       id,
       kind: block.kind ?? 'step',
       label: block.name,
+      description: block.description,
       // Reading order inside the 600px world: 4 tiles per row.
       position: { x: (i % 4) * TILE_SIZE, y: Math.floor(i / 4) * TILE_SIZE + TILE_SIZE },
       meta: scanMeta(doc.repo),
@@ -123,7 +124,8 @@ function buildInterior(doc: RepoDoc, levels: Record<string, Level>): void {
  */
 export function assembleProject(docs: ScanDoc[]): ProjectDocument {
   const repoDocs = docs.filter(isRepoDoc);
-  const systemName = docs.find((d): d is SystemDoc => !isRepoDoc(d))?.system;
+  const systemDoc = docs.find((d): d is SystemDoc => !isRepoDoc(d));
+  const systemName = systemDoc?.system;
   if (repoDocs.length === 0) throw new ScanFormatError('No repo documents found in the scan.');
 
   const seen = new Set<string>();
@@ -154,6 +156,12 @@ export function assembleProject(docs: ScanDoc[]): ProjectDocument {
         meta: scanMeta(doc.repo, {
           ...(dep.contract ? { contract: dep.contract } : undefined),
           ...(dep.traffic !== undefined ? { traffic: dep.traffic } : undefined),
+          ...(dep.contractVersion ? { contractVersion: dep.contractVersion } : undefined),
+          ...(dep.deprecated ? { deprecated: true } : undefined),
+          ...(dep.auth ? { auth: dep.auth } : undefined),
+          ...(dep.latency ? { latency: dep.latency } : undefined),
+          ...(dep.errorRate !== undefined ? { errorRate: dep.errorRate } : undefined),
+          ...(dep.golden ? { golden: true } : undefined),
         }),
       });
     }
@@ -200,6 +208,9 @@ export function assembleProject(docs: ScanDoc[]): ProjectDocument {
           ...(doc.context ? { context: doc.context } : undefined),
           ...(doc.team ? { team: doc.team } : undefined),
           ...(doc.environments ? { environments: doc.environments } : undefined),
+          ...(doc.version ? { version: doc.version } : undefined),
+          ...(doc.commit ? { commit: doc.commit } : undefined),
+          ...(doc.links ? { links: doc.links } : undefined),
           ...(doc.aspects ? { aspects: doc.aspects } : undefined),
         }),
       });
@@ -207,13 +218,18 @@ export function assembleProject(docs: ScanDoc[]): ProjectDocument {
         const name = s.name ?? defaultLabel(s.kind);
         const size = TILE_SIZE / 2;
         const gap = 8;
+        const details = [s.engine, s.backup ? `backup: ${s.backup}` : undefined].filter(Boolean).join(' · ');
         nodes.push({
           id: storageNodeId(doc.repo, name),
           kind: s.kind,
           label: name,
+          description: details || undefined,
           position: { x: (slot % 2) * (size + gap), y: TILE_SIZE + gap + Math.floor(slot / 2) * (size + gap) },
           parentId: id,
-          meta: scanMeta(doc.repo),
+          meta: scanMeta(doc.repo, {
+            // Classified data tints the storage tile under the security lens.
+            ...(s.classification ? { aspects: { security: { status: s.classification, items: [`data: ${s.classification}`] } } } : undefined),
+          }),
         });
       });
       buildInterior(doc, levels);
@@ -221,5 +237,9 @@ export function assembleProject(docs: ScanDoc[]): ProjectDocument {
   }
 
   levels[ROOT_PATH] = { nodes, edges };
-  return { version: 2, id: crypto.randomUUID(), name: systemName ?? UNNAMED_SYSTEM, levels };
+  const scan =
+    systemDoc?.scannedAt || systemDoc?.scanner
+      ? { scannedAt: systemDoc.scannedAt, scanner: systemDoc.scanner }
+      : undefined;
+  return { version: 2, id: crypto.randomUUID(), name: systemName ?? UNNAMED_SYSTEM, levels, scan };
 }

@@ -28,6 +28,8 @@ import { loadProject } from './persistence';
 export interface ArchState {
   docId: string;
   docName: string;
+  /** Provenance of the last imported scan. */
+  docScan?: ProjectDocument['scan'];
   /** Every drill-down canvas, keyed by the path of entered component ids. */
   levels: Record<string, Level>;
   /** Components entered to reach the active level; [] is the root. */
@@ -118,6 +120,7 @@ export const useArchStore = create<ArchState>((set, get) => {
   return {
     docId: project.id,
     docName: project.name,
+    docScan: project.scan,
     levels: project.levels,
     path: [],
     navVersion: 0,
@@ -304,6 +307,7 @@ export const useArchStore = create<ArchState>((set, get) => {
       set({
         docId: crypto.randomUUID(),
         docName: 'Untitled architecture',
+        docScan: undefined,
         levels: { [ROOT_PATH]: { nodes: [], edges: [] } },
         path: [],
         nodes: [],
@@ -323,6 +327,7 @@ export const useArchStore = create<ArchState>((set, get) => {
       set({
         docId: project.id,
         docName: project.name,
+        docScan: project.scan,
         levels: project.levels,
         path: [],
         nodes: flow.nodes,
@@ -335,7 +340,7 @@ export const useArchStore = create<ArchState>((set, get) => {
       });
     },
 
-    toProject: () => ({ version: 2, id: get().docId, name: get().docName, levels: flushed() }),
+    toProject: () => ({ version: 2, id: get().docId, name: get().docName, levels: flushed(), scan: get().docScan }),
   };
 });
 

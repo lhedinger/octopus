@@ -88,6 +88,8 @@ export interface ProjectDocument {
   id: string;
   name: string;
   levels: Record<string, Level>;
+  /** Provenance of the last imported scan (when, what produced it). */
+  scan?: { scannedAt?: string; scanner?: string };
 }
 
 export const ROOT_PATH = '';

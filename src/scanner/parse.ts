@@ -61,14 +61,25 @@ function parseRepoDoc(raw: Record<string, unknown>, where: string): RepoDoc {
   if (raw.description !== undefined) doc.description = String(raw.description);
   if (raw.context !== undefined) doc.context = String(raw.context);
   if (raw.team !== undefined) doc.team = String(raw.team);
+  if (raw.lifecycle !== undefined) doc.lifecycle = oneOf(raw.lifecycle, ['experimental', 'active', 'deprecated', 'sunset'], `${where}.lifecycle`);
+  if (raw.tier !== undefined) doc.tier = oneOf(raw.tier, ['T0', 'T1', 'T2', 'T3'], `${where}.tier`);
+  if (raw.version !== undefined) doc.version = String(raw.version);
+  if (raw.tech !== undefined) doc.tech = asStringList(raw.tech, `${where}.tech`);
+  if (raw.links !== undefined) {
+    if (!isRecord(raw.links)) fail(`${where}.links`, 'must be a map of name → url');
+    doc.links = Object.fromEntries(Object.entries(raw.links as Record<string, unknown>).map(([k, v]) => [k, String(v)]));
+  }
 
   if (raw.storage !== undefined) {
     if (!Array.isArray(raw.storage)) fail(where, '`storage` must be a list');
     doc.storage = (raw.storage as unknown[]).map((s, i) => {
-      if (!isRecord(s)) return fail(`${where}.storage[${i}]`, 'must be { kind, name? }');
+      if (!isRecord(s)) return fail(`${where}.storage[${i}]`, 'must be { kind, name?, engine?, classification?, backup? }');
       return {
         kind: oneOf(s.kind, SCAN_STORAGE_KINDS, `${where}.storage[${i}].kind`),
         name: s.name !== undefined ? String(s.name) : undefined,
+        engine: s.engine !== undefined ? String(s.engine) : undefined,
+        classification: s.classification !== undefined ? String(s.classification) : undefined,
+        backup: s.backup !== undefined ? String(s.backup) : undefined,
       };
     });
   }
@@ -84,6 +95,14 @@ function parseRepoDoc(raw: Record<string, unknown>, where: string): RepoDoc {
         label: d.label !== undefined ? String(d.label) : undefined,
         contract: d.contract !== undefined ? asStringList(d.contract, `${where}.dependencies[${i}].contract`) : undefined,
         traffic: d.traffic as number | undefined,
+        contractVersion: d.contractVersion !== undefined ? String(d.contractVersion) : undefined,
+        deprecated: d.deprecated === true ? true : undefined,
+        auth: d.auth !== undefined ? String(d.auth) : undefined,
+        latency: isRecord(d.latency)
+          ? { p50: d.latency.p50 as number | undefined, p99: d.latency.p99 as number | undefined }
+          : undefined,
+        errorRate: typeof d.errorRate === 'number' ? d.errorRate : undefined,
+        golden: d.golden === true ? true : undefined,
       };
     });
   }
@@ -119,15 +138,58 @@ function parseRepoDoc(raw: Record<string, unknown>, where: string): RepoDoc {
   if (raw.deploy !== undefined) aspects.deploy = parseAspect(raw.deploy, `${where}.deploy`);
   if (raw.health !== undefined) {
     const h = isRecord(raw.health) ? { ...(raw.health as Record<string, unknown>) } : raw.health;
-    // `uptime` is the friendly YAML name for the health aspect's score.
-    if (isRecord(h) && h.uptime !== undefined) {
-      h.score = h.uptime;
-      delete h.uptime;
+    // `uptime` is the friendly YAML name for the health aspect's score;
+    // slo / error-budget land as card items.
+    const extras: string[] = [];
+    if (isRecord(h)) {
+      if (h.uptime !== undefined) {
+        h.score = h.uptime;
+        delete h.uptime;
+      }
+      if (h.slo !== undefined) {
+        extras.push(`SLO ${h.slo}%`);
+        delete h.slo;
+      }
+      if (h.budget !== undefined) {
+        extras.push(`error budget left: ${h.budget}%`);
+        delete h.budget;
+      }
     }
     aspects.health = parseAspect(h, `${where}.health`);
+    if (extras.length > 0) aspects.health.items = [...extras, ...(aspects.health.items ?? [])];
   }
+  if (raw.incidents !== undefined) {
+    if (!isRecord(raw.incidents)) fail(`${where}.incidents`, 'must be { active?, last? }');
+    const inc = raw.incidents as Record<string, unknown>;
+    doc.incidents = { active: inc.active as number | undefined, last: inc.last !== undefined ? String(inc.last) : undefined };
+    const line = `incidents: ${inc.active ?? 0} active${inc.last ? ` · last ${inc.last}` : ''}`;
+    aspects.health = { ...aspects.health, items: [...(aspects.health?.items ?? []), line] };
+  }
+  if (raw.oncall !== undefined) {
+    doc.oncall = String(raw.oncall);
+    aspects.ownership = { ...aspects.ownership, items: [...(aspects.ownership?.items ?? []), `on-call: ${doc.oncall}`] };
+  }
+  if (raw.security !== undefined) {
+    if (!isRecord(raw.security)) fail(`${where}.security`, 'must be { vulnerabilities?, classification? }');
+    const sec = raw.security as Record<string, unknown>;
+    const vulns = isRecord(sec.vulnerabilities) ? (sec.vulnerabilities as Record<string, number>) : {};
+    doc.security = { vulnerabilities: vulns, classification: sec.classification !== undefined ? String(sec.classification) : undefined };
+    const order = ['critical', 'high', 'medium', 'low'];
+    const worst = order.find((s) => (vulns[s] ?? 0) > 0) ?? 'clean';
+    const items = [
+      ...Object.entries(vulns)
+        .filter(([, n]) => n > 0)
+        .map(([sev, n]) => `${n} ${sev} CVE${n > 1 ? 's' : ''}`),
+      ...(doc.security.classification ? [`data: ${doc.security.classification}`] : []),
+    ];
+    aspects.security = { status: worst, items: items.length > 0 ? items : undefined };
+  }
+  if (raw.commit !== undefined) doc.commit = String(raw.commit);
   // The owning team doubles as the ownership aspect (badge + lens).
   if (doc.team) aspects.ownership = { status: doc.team, ...aspects.ownership };
+  if (doc.lifecycle) aspects.lifecycle = { status: doc.lifecycle };
+  if (doc.tier) aspects.tier = { status: doc.tier };
+  if (doc.tech && doc.tech.length > 0) aspects.tech = { status: doc.tech[0], items: doc.tech };
 
   if (raw.environments !== undefined) {
     if (!isRecord(raw.environments)) fail(`${where}.environments`, 'must be a map of env name → { version?, status? }');
@@ -178,6 +240,7 @@ function parseBehavior(v: unknown, where: string): { blocks: ScanBehaviorBlock[]
       return {
         name: blk.name,
         kind: blk.kind !== undefined ? oneOf(blk.kind, SCAN_BEHAVIOR_KINDS, `${where}.blocks[${i}].kind`) : undefined,
+        description: blk.description !== undefined ? String(blk.description) : undefined,
       };
     }),
     flow: b.flow !== undefined ? asFlowList(b.flow, `${where}.flow`) : undefined,
@@ -221,7 +284,12 @@ export function parseScanDocs(text: string, filename = 'scan.yaml'): ScanDoc[] {
       fail(where, `\`octopus: ${SCAN_FORMAT_VERSION}\` format version is required`);
     }
     if (typeof raw.system === 'string') {
-      docs.push({ octopus: SCAN_FORMAT_VERSION, system: raw.system } satisfies SystemDoc);
+      docs.push({
+        octopus: SCAN_FORMAT_VERSION,
+        system: raw.system,
+        scannedAt: raw.scannedAt !== undefined ? String(raw.scannedAt) : undefined,
+        scanner: raw.scanner !== undefined ? String(raw.scanner) : undefined,
+      } satisfies SystemDoc);
       return;
     }
     docs.push(parseRepoDoc(raw, where));

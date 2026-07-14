@@ -8,6 +8,8 @@ team: discovery
 storage:
   - kind: database
     name: catalog-db
+    engine: mysql 8
+    classification: internal
 dependencies:
   - repo: search
     kind: async
@@ -34,3 +36,9 @@ health:
 environments:
   staging: { version: 2.4.0 }
   production: { version: 2.3.9 }
+lifecycle: active
+tier: T2
+version: 2.3.9
+tech: [TypeScript, Node 20, NestJS]
+security:
+  vulnerabilities: { high: 1, medium: 3 }

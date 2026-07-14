@@ -32,17 +32,40 @@ kind: microservice      # service | microservice | apiGateway | client
 description: Charges cards and settles invoices
 context: billing        # bounded context this repo belongs to (zone grouping)
 team: payments-squad    # owning team — team zones + ownership badge/lens
+oncall: rana (rota)     # shown in the owner card section
+
+lifecycle: active       # experimental | active | deprecated | sunset (lens)
+tier: T0                # criticality T0–T3 (lens)
+version: 1.7.2          # current release (card header)
+commit: 9f2c1ab34       # source commit of this scan (card header)
+tech: [TypeScript, Node 20, Fastify]   # first entry drives the tech lens colour
+links:                  # jump links rendered in the facts card
+  repo: https://github.com/acme/payments
+  runbook: https://wiki.acme.dev/payments/runbook
+
+security:               # security lens: colours by worst severity
+  vulnerabilities: { critical: 0, high: 2, medium: 4 }
+  classification: PII   # public | internal | PII | PCI
+incidents: { active: 1, last: 2026-07-12 }   # folded into the health card
 
 storage:                # attached storage (rendered attached to the service)
   - kind: database      # database | cache | datastore
     name: payments-db   # (default: the kind's label)
+    engine: postgres 15           # shown as the tile's description
+    classification: PCI           # tints the tile under the security lens
+    backup: daily · last 2026-07-13
 
 dependencies:           # outgoing edges on the system map
   - repo: accounts      # target repo id (stub created if not scanned)
     kind: sync          # sync | async | data   (default: sync)
     label: charge lookup
     contract: [GET /accounts/:id]   # shown when the edge is tapped
+    contractVersion: v2             # + deprecated: true flags the runway
     traffic: 42                     # req/s — edge width under the health lens
+    auth: mTLS                      # mTLS | api-key | oauth | none (security lens)
+    latency: { p50: 12, p99: 140 }  # edge card
+    errorRate: 0.4                  # % — edge colour under the health lens
+    golden: true                    # highlights the critical user path
 
 modules:                # the repo's grouped subdomains — its interior canvas
   - name: Charging
@@ -68,7 +91,7 @@ test:                   # tile badge + Test lens
 deploy: [staging, production]   # tile badge + Deploy lens (list = environments)
 
 health: degraded        # healthy | degraded | down — always-on tile dot + lens
-                        # (or { status, uptime: 99.9 })
+                        # (or { status, uptime: 99.9, slo: 99.9, budget: 42 })
 environments:           # per-env deployment — drives the environment switcher
   staging: { version: 1.2.0 }
   production: { version: 1.1.9, status: degraded }
@@ -92,6 +115,8 @@ Optionally names the whole map:
 ```yaml
 octopus: 1
 system: ACME Shop
+scannedAt: 2026-07-14   # scan provenance, shown in the app menu
+scanner: octoscan v0.3
 ```
 
 ## Layout

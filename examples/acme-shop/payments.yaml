@@ -8,6 +8,9 @@ team: payments
 storage:
   - kind: database
     name: payments-db
+    engine: postgres 15
+    classification: PCI
+    backup: daily · last 2026-07-13
   - kind: cache
     name: idempotency-cache
 dependencies:
@@ -16,6 +19,10 @@ dependencies:
     label: charge API
     contract: [POST /v1/charges, POST /v1/refunds]
     traffic: 14
+    auth: api-key
+    latency: { p50: 180, p99: 850 }
+    errorRate: 0.3
+    golden: true
   - repo: orders
     kind: async
     label: payment.settled
@@ -65,6 +72,22 @@ test:
 health:
   status: healthy
   uptime: 99.95
+  slo: 99.9
+  budget: 62
 environments:
   staging: { version: 1.8.0 }
   production: { version: 1.7.2 }
+lifecycle: active
+tier: T0
+version: 1.7.2
+commit: 9f2c1ab34
+tech: [TypeScript, Node 20, Fastify]
+links:
+  repo: https://github.com/acme/payments
+  runbook: https://wiki.acme.dev/payments/runbook
+  dashboard: https://grafana.acme.dev/d/payments
+security:
+  vulnerabilities: { critical: 0, high: 0, medium: 1 }
+  classification: PCI
+oncall: rana (payments rota)
+incidents: { active: 0, last: 2026-05-02 }

@@ -106,6 +106,64 @@ describe('scanner', () => {
     expect(drift('c', second)).toBe('added');
   });
 
+  it('maps lifecycle, tier, tech, links, version and commit onto the node', () => {
+    const project = scan(
+      'octopus: 1\nrepo: a\nlifecycle: deprecated\ntier: T0\nversion: 1.2.3\ncommit: abc1234\ntech: [Go 1.22, Envoy]\nlinks: { repo: "https://x", docs: "https://y" }',
+    );
+    const node = project.levels[ROOT_PATH].nodes[0];
+    const aspects = node.meta?.aspects as Record<string, { status?: string; items?: string[] }>;
+    expect(aspects.lifecycle.status).toBe('deprecated');
+    expect(aspects.tier.status).toBe('T0');
+    expect(aspects.tech).toEqual({ status: 'Go 1.22', items: ['Go 1.22', 'Envoy'] });
+    expect(node.meta?.version).toBe('1.2.3');
+    expect(node.meta?.commit).toBe('abc1234');
+    expect(node.meta?.links).toEqual({ repo: 'https://x', docs: 'https://y' });
+    expect(() => parseScanDocs('octopus: 1\nrepo: a\nlifecycle: dead')).toThrow(/one of/);
+  });
+
+  it('derives the security aspect from vulnerabilities and classification', () => {
+    const project = scan(
+      'octopus: 1\nrepo: a\nsecurity:\n  vulnerabilities: { critical: 0, high: 2, medium: 4 }\n  classification: PII',
+    );
+    const sec = (project.levels[ROOT_PATH].nodes[0].meta?.aspects as Record<string, { status?: string; items?: string[] }>).security;
+    expect(sec.status).toBe('high');
+    expect(sec.items).toContain('2 high CVEs');
+    expect(sec.items).toContain('data: PII');
+
+    const clean = scan('octopus: 1\nrepo: b\nsecurity:\n  vulnerabilities: { critical: 0 }');
+    expect((clean.levels[ROOT_PATH].nodes[0].meta?.aspects as Record<string, { status?: string }>).security.status).toBe('clean');
+  });
+
+  it('folds slo/incidents into health items and oncall into ownership', () => {
+    const project = scan(
+      'octopus: 1\nrepo: a\nteam: t\noncall: alice\nhealth: { status: healthy, uptime: 99.9, slo: 99.5, budget: 40 }\nincidents: { active: 1, last: 2026-07-12 }',
+    );
+    const aspects = project.levels[ROOT_PATH].nodes[0].meta?.aspects as Record<string, { items?: string[] }>;
+    expect(aspects.health.items).toEqual(
+      expect.arrayContaining(['SLO 99.5%', 'error budget left: 40%', expect.stringContaining('incidents: 1 active')]),
+    );
+    expect(aspects.ownership.items).toContain('on-call: alice');
+  });
+
+  it('enriches storage and edges with security/run-it facts', () => {
+    const project = scan(
+      'octopus: 1\nrepo: a\nstorage:\n  - kind: database\n    name: db\n    engine: postgres 15\n    classification: PII\n    backup: daily\ndependencies:\n  - repo: b\n    auth: none\n    latency: { p50: 10, p99: 200 }\n    errorRate: 2.5\n    golden: true\n    contractVersion: v2\n    deprecated: true',
+    );
+    const db = project.levels[ROOT_PATH].nodes.find((n) => n.kind === 'database')!;
+    expect(db.description).toContain('postgres 15');
+    expect((db.meta?.aspects as Record<string, { status?: string }>).security.status).toBe('PII');
+    const edge = project.levels[ROOT_PATH].edges[0];
+    expect(edge.meta).toMatchObject({ auth: 'none', errorRate: 2.5, golden: true, contractVersion: 'v2', deprecated: true });
+    expect(edge.meta?.latency).toEqual({ p50: 10, p99: 200 });
+  });
+
+  it('captures scan provenance and carries it through merges', () => {
+    const scanned = scan('octopus: 1\nrepo: a', 'octopus: 1\nsystem: S\nscannedAt: 2026-07-14\nscanner: octoscan v1');
+    expect(scanned.scan).toEqual({ scannedAt: '2026-07-14', scanner: 'octoscan v1' });
+    const merged = mergeScan({ version: 2, id: 'p', name: 'P', levels: { '': { nodes: [], edges: [] } } }, scanned);
+    expect(merged.scan?.scannedAt).toBe('2026-07-14');
+  });
+
   it('accepts custom aspects through the generic aspects map', () => {
     const [doc] = parseScanDocs(
       'octopus: 1\nrepo: a\naspects:\n  security: { status: audited, items: [SAST, secrets scan] }\n  docs: { score: 40 }',

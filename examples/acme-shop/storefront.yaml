@@ -19,3 +19,9 @@ deploy: [preview, production]
 health:
   status: healthy
   uptime: 99.9
+lifecycle: active
+tier: T1
+version: 8.4.0
+tech: [TypeScript, React 19, Next.js]
+links:
+  repo: https://github.com/acme/storefront

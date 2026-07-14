@@ -78,5 +78,6 @@ export function mergeScan(current: ProjectDocument, scanned: ProjectDocument): P
     // A system doc names the map; otherwise the current name stands.
     name: scanned.name !== UNNAMED_SYSTEM ? scanned.name : current.name,
     levels,
+    scan: scanned.scan ?? current.scan,
   });
 }

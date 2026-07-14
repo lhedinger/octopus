@@ -10,9 +10,18 @@ dependencies:
     label: auth
     contract: [POST /token, GET /me]
     traffic: 200
+    auth: mTLS
+    latency: { p50: 8, p99: 45 }
+    errorRate: 0.01
+    golden: true
   - repo: catalog
     contract: [GET /products, GET /products/:id]
+    contractVersion: v1
     traffic: 150
+    auth: mTLS
+    latency: { p50: 12, p99: 80 }
+    errorRate: 0.02
+    golden: true
   - repo: search
     contract: [GET /search?q=]
     traffic: 90
@@ -21,7 +30,12 @@ dependencies:
     traffic: 60
   - repo: orders
     contract: [POST /checkout, GET /orders/:id]
+    contractVersion: v2
     traffic: 45
+    auth: mTLS
+    latency: { p50: 38, p99: 240 }
+    errorRate: 1.8
+    golden: true
 # Plain-list shorthand still works: items only, no status/coverage.
 build: [lint, docker image]
 test:
@@ -32,3 +46,12 @@ health:
 environments:
   staging: { version: 3.2.1 }
   production: { version: 3.2.0 }
+lifecycle: active
+tier: T0
+version: 3.2.0
+tech: [Go 1.22, Envoy]
+links:
+  repo: https://github.com/acme/gateway
+security:
+  vulnerabilities: { critical: 0, high: 0 }
+oncall: mei (platform rota)

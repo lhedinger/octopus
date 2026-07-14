@@ -21,6 +21,7 @@ export function Toolbar() {
   const loadFromProject = useArchStore((s) => s.loadFromProject);
   const toProject = useArchStore((s) => s.toProject);
   const notify = useArchStore((s) => s.notify);
+  const docScan = useArchStore((s) => s.docScan);
 
   const onImport = async (files: File[]) => {
     try {
@@ -90,6 +91,12 @@ export function Toolbar() {
         <>
           <button aria-hidden tabIndex={-1} className="fixed inset-0 z-20 cursor-default" onClick={() => setMenuOpen(false)} />
           <div className="absolute left-3 top-14 z-30 w-44 overflow-hidden rounded-xl border border-white/10 bg-panel/95 py-1 text-sm shadow-xl backdrop-blur">
+            {docScan?.scannedAt && (
+              <p className="border-b border-white/10 px-3 py-1.5 text-[10px] leading-tight text-slate-500">
+                Last scan: {docScan.scannedAt}
+                {docScan.scanner ? ` · ${docScan.scanner}` : ''}
+              </p>
+            )}
             {[
               { label: 'New architecture', fn: () => confirm('Start a new, empty architecture?') && newProject() },
               { label: 'Load example', fn: loadExample },

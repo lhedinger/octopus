@@ -8,6 +8,9 @@ team: commerce
 storage:
   - kind: database
     name: orders-db
+    engine: postgres 15
+    classification: PII
+    backup: daily · last 2026-07-13
 dependencies:
   - repo: cart
     label: checkout snapshot
@@ -17,6 +20,9 @@ dependencies:
     label: reserve stock
     contract: [POST /reservations]
     traffic: 30
+    auth: api-key
+    latency: { p50: 60, p99: 900 }
+    errorRate: 2.4
   - repo: payments
     kind: async
     label: order.placed
@@ -59,6 +65,20 @@ build:
 test:
   coverage: 41
   items: [unit]
-health: degraded
+health:
+  status: degraded
+  slo: 99.5
+  budget: 8
 environments:
   staging: { version: 2.1.0 }
+lifecycle: active
+tier: T1
+version: 2.1.0
+tech: [Kotlin, JVM 21, Spring Boot]
+links:
+  repo: https://github.com/acme/orders
+security:
+  vulnerabilities: { critical: 0, high: 2, medium: 4 }
+  classification: PII
+oncall: jonas (commerce rota)
+incidents: { active: 1, last: 2026-07-12 }

@@ -32,6 +32,12 @@ export type ScanBehaviorKind = (typeof SCAN_BEHAVIOR_KINDS)[number];
 export interface ScanStorage {
   kind: ScanStorageKind;
   name?: string;
+  /** Engine + version, e.g. "postgres 15". */
+  engine?: string;
+  /** Data classification: public | internal | PII | PCI. */
+  classification?: string;
+  /** Backup policy / last run, e.g. "daily · last 2026-07-13". */
+  backup?: string;
 }
 
 export interface ScanDependency {
@@ -43,11 +49,24 @@ export interface ScanDependency {
   contract?: string[];
   /** Approximate request/event rate (req/s) — rendered under the health lens. */
   traffic?: number;
+  /** Version of the consumed contract, and whether it's deprecated. */
+  contractVersion?: string;
+  deprecated?: boolean;
+  /** How the hop is secured: mTLS | api-key | oauth | none. */
+  auth?: string;
+  /** Runtime behaviour of the hop. */
+  latency?: { p50?: number; p99?: number };
+  /** Error rate in percent. */
+  errorRate?: number;
+  /** True when this edge is on the critical user path. */
+  golden?: boolean;
 }
 
 export interface ScanBehaviorBlock {
   name: string;
   kind?: ScanBehaviorKind;
+  /** Notes: SLO budget, error handling, code ref. */
+  description?: string;
 }
 
 /** `[from, to]` short form or `{ from, to, label }` for labelled branches. */
@@ -87,6 +106,24 @@ export interface RepoDoc {
   team?: string;
   /** Per-environment deployment state (version, status). */
   environments?: Record<string, { version?: string; status?: string }>;
+  /** Lifecycle stage: experimental | active | deprecated | sunset. */
+  lifecycle?: string;
+  /** Criticality tier: T0 (most critical) … T3. */
+  tier?: string;
+  /** Current release version. */
+  version?: string;
+  /** Tech stack; the first entry (primary language) drives the tech lens colour. */
+  tech?: string[];
+  /** Named links to the real artifacts: repo, docs, runbook, dashboard, spec … */
+  links?: Record<string, string>;
+  /** Security posture: vulnerability counts by severity + data classification. */
+  security?: { vulnerabilities?: Record<string, number>; classification?: string };
+  /** Current on-call (person or rota). */
+  oncall?: string;
+  /** Operational memory: active incident count, last incident date. */
+  incidents?: { active?: number; last?: string };
+  /** Source commit this scan was taken from. */
+  commit?: string;
   storage?: ScanStorage[];
   dependencies?: ScanDependency[];
   /** The repo's internal subdomains — the component's interior canvas. */
@@ -104,6 +141,9 @@ export interface RepoDoc {
 export interface SystemDoc {
   octopus: number;
   system: string;
+  /** When the scan ran and what produced it — shown in the app, enables honest drift. */
+  scannedAt?: string;
+  scanner?: string;
 }
 
 export type ScanDoc = RepoDoc | SystemDoc;

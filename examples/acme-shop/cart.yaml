@@ -30,3 +30,7 @@ health:
 environments:
   staging: { version: 4.2.0 }
   production: { version: 4.2.0 }
+lifecycle: active
+tier: T1
+version: 4.2.0
+tech: [TypeScript, Node 20, Fastify]

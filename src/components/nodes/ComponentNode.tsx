@@ -39,6 +39,9 @@ function FacetBadges({ meta, onOpen }: { meta?: Record<string, unknown>; onOpen:
 /** Anchored card with the details behind the badges. */
 function FacetFactsCard({ meta, onClose }: { meta?: Record<string, unknown>; onClose: () => void }) {
   const data = aspectsOf(meta);
+  const version = meta?.version as string | undefined;
+  const commit = meta?.commit as string | undefined;
+  const links = meta?.links as Record<string, string> | undefined;
   // Badge aspects always show; lens-only aspects (health, drift) only with data.
   const sections = ASPECTS.filter((a) => a.badge !== false || data[a.key]).map((a) => ({
     key: a.key,
@@ -49,7 +52,9 @@ function FacetFactsCard({ meta, onClose }: { meta?: Record<string, unknown>; onC
   return (
     <div className="nodrag w-56 rounded-xl border border-white/10 bg-panel/95 p-2 text-left shadow-xl backdrop-blur">
       <div className="mb-1 flex items-center justify-between">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-accent">Component facts</span>
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-accent">
+          Component facts{version ? ` · v${version}` : ''}{commit ? ` · ${commit.slice(0, 7)}` : ''}
+        </span>
         <button onClick={onClose} aria-label="Close facts" className="rounded px-1 text-slate-400 hover:bg-white/10 hover:text-slate-100">✕</button>
       </div>
       <div className="space-y-1.5">
@@ -80,6 +85,22 @@ function FacetFactsCard({ meta, onClose }: { meta?: Record<string, unknown>; onC
             )}
           </div>
         ))}
+
+        {links && Object.keys(links).length > 0 && (
+          <div className="flex flex-wrap gap-1 border-t border-white/10 pt-1.5">
+            {Object.entries(links).map(([name, url]) => (
+              <a
+                key={name}
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-accent transition hover:bg-white/10"
+              >
+                {name} ↗
+              </a>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -106,10 +127,12 @@ export function ComponentNode({ id, data }: NodeProps<FlowNode>) {
   const isValidTarget = tapConnect && !!connectSource && !isSource && !!sourceKind && canConnect(sourceKind, kind).ok;
   const showMenu = selected && !tapConnect;
 
-  // Build/test/deploy state applies to codebase tiles (not storage/facets).
+  // Badge strips belong to codebase tiles; the active lens applies to any
+  // node carrying that aspect's data (e.g. classified storage under 🔒).
   const hasBadges = !attached && !fixed && BADGE_KINDS.includes(kind);
-  const metric = hasBadges ? lensMetric(lens, meta) : undefined;
-  const lensDimmed = lens !== 'none' && !hasBadges;
+  const hasLensData = lens !== 'none' && aspectsOf(meta)[lens] !== undefined;
+  const metric = hasBadges || hasLensData ? lensMetric(lens, meta) : undefined;
+  const lensDimmed = lens !== 'none' && !metric;
 
   // Health is the one always-on ambient signal (RTS unit health).
   const health = hasBadges ? aspectsOf(meta).health : undefined;

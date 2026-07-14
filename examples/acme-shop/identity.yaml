@@ -8,6 +8,9 @@ team: platform
 storage:
   - kind: database
     name: identity-db
+    engine: postgres 16
+    classification: PII
+    backup: hourly · last 2026-07-14
   - kind: cache
     name: session-cache
 dependencies:
@@ -36,3 +39,11 @@ health:
 environments:
   staging: { version: 5.0.1 }
   production: { version: 5.0.1 }
+lifecycle: active
+tier: T0
+version: 5.0.1
+tech: [Rust, Axum]
+security:
+  vulnerabilities: { critical: 0, high: 0 }
+  classification: PII
+oncall: mei (platform rota)

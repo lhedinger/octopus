@@ -19,7 +19,18 @@ export function Inspector() {
 
   if (!selectedEdgeId || !edge) return null;
 
-  const meta = edge.data?.meta as { contract?: string[]; traffic?: number; source?: string } | undefined;
+  const meta = edge.data?.meta as
+    | {
+        contract?: string[];
+        traffic?: number;
+        contractVersion?: string;
+        deprecated?: boolean;
+        auth?: string;
+        latency?: { p50?: number; p99?: number };
+        errorRate?: number;
+        golden?: boolean;
+      }
+    | undefined;
 
   return (
     <div className="absolute bottom-[6.25rem] left-3 right-3 z-20 rounded-2xl border border-white/10 bg-panel/90 p-3 shadow-xl backdrop-blur sm:bottom-auto sm:left-auto sm:right-3 sm:top-16 sm:w-72">
@@ -55,7 +66,10 @@ export function Inspector() {
 
         {meta?.contract && meta.contract.length > 0 && (
           <div>
-            <label className={labelCls}>Contract</label>
+            <label className={labelCls}>
+              Contract{meta.contractVersion ? ` · ${meta.contractVersion}` : ''}
+              {meta.deprecated && <span className="ml-1 rounded bg-amber-500/20 px-1 normal-case text-amber-300">deprecated</span>}
+            </label>
             <ul className="space-y-0.5 rounded-lg bg-panelLight/60 px-2 py-1.5 font-mono text-[11px] leading-relaxed text-slate-300">
               {meta.contract.map((c) => (
                 <li key={c}>{c}</li>
@@ -63,8 +77,14 @@ export function Inspector() {
             </ul>
           </div>
         )}
-        {meta?.traffic !== undefined && (
-          <p className="text-xs text-slate-400">Traffic: ~{meta.traffic} req/s</p>
+        {(meta?.traffic !== undefined || meta?.auth || meta?.latency || meta?.errorRate !== undefined || meta?.golden) && (
+          <div className="space-y-0.5 text-xs text-slate-400">
+            {meta.golden && <p className="text-amber-300">⭐ On the golden path</p>}
+            {meta.auth && <p>Auth: {meta.auth}</p>}
+            {meta.traffic !== undefined && <p>Traffic: ~{meta.traffic} req/s</p>}
+            {meta.latency && <p>Latency: {meta.latency.p50 !== undefined ? `p50 ${meta.latency.p50}ms` : ''}{meta.latency.p99 !== undefined ? ` · p99 ${meta.latency.p99}ms` : ''}</p>}
+            {meta.errorRate !== undefined && <p>Error rate: {meta.errorRate}%</p>}
+          </div>
         )}
       </div>
 

@@ -65,14 +65,31 @@ export function Canvas() {
   const rawEdges = useArchStore((s) => s.edges);
   const depth = useArchStore((s) => s.path.length);
   const lens = useArchStore((s) => s.lens);
-  // Under the health lens, edge width encodes traffic (req/s, log scale).
+  // Lenses restyle edges too: health encodes traffic (width) and error rate /
+  // golden path (colour); security colours each hop by how it's secured.
   const edges = useMemo(() => {
-    if (lens !== 'health') return rawEdges;
+    if (lens !== 'health' && lens !== 'security') return rawEdges;
     return rawEdges.map((e) => {
-      const traffic = (e.data?.meta as { traffic?: number } | undefined)?.traffic;
-      if (traffic === undefined) return e;
-      const width = Math.min(9, 1.5 + Math.log10(1 + traffic) * 2.5);
-      return { ...e, style: { ...e.style, stroke: '#38bdf8', strokeWidth: width, opacity: 0.9 } };
+      const meta = e.data?.meta as
+        | { traffic?: number; errorRate?: number; golden?: boolean; auth?: string }
+        | undefined;
+      if (!meta) return e;
+      if (lens === 'security') {
+        if (meta.auth === undefined) return e;
+        const color = meta.auth === 'none' ? '#f87171' : meta.auth === 'mTLS' ? '#34d399' : '#fbbf24';
+        return { ...e, style: { ...e.style, stroke: color, strokeWidth: 2.5, opacity: 0.95 } };
+      }
+      if (meta.traffic === undefined && meta.errorRate === undefined && !meta.golden) return e;
+      const width = meta.traffic !== undefined ? Math.min(9, 1.5 + Math.log10(1 + meta.traffic) * 2.5) : 2;
+      const color =
+        meta.errorRate !== undefined && meta.errorRate >= 1
+          ? '#f87171'
+          : meta.errorRate !== undefined && meta.errorRate >= 0.1
+            ? '#fbbf24'
+            : meta.golden
+              ? '#facc15'
+              : '#38bdf8';
+      return { ...e, style: { ...e.style, stroke: color, strokeWidth: width, opacity: 0.9 } };
     });
   }, [rawEdges, lens]);
   const onNodesChange = useArchStore((s) => s.onNodesChange);

@@ -25,3 +25,9 @@ health: down
 environments:
   staging: { version: 0.9.1 }
   production: { version: 0.9.0, status: down }
+lifecycle: deprecated
+tier: T2
+version: 0.9.0
+tech: [Java 11, Spring]
+security:
+  vulnerabilities: { critical: 1, high: 3 }

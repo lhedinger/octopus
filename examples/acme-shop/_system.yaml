@@ -1,3 +1,5 @@
-# Names the whole map. Optional — without it the current project name stands.
+# Names the whole map and records scan provenance.
 octopus: 1
 system: ACME Shop
+scannedAt: 2026-07-14
+scanner: handcrafted-example v1

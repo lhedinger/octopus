@@ -107,6 +107,67 @@ ASPECTS.push({
     d?.status ? `${d.status}${d.score !== undefined ? ` · ${d.score}% uptime` : ''}` : 'no data',
 });
 
+// Security posture: worst vulnerability severity / data classification; lens only.
+const SECURITY_COLORS: Record<string, string> = {
+  critical: RED,
+  high: RED,
+  medium: AMBER,
+  low: AMBER,
+  clean: GREEN,
+  PCI: RED,
+  PII: RED,
+  internal: AMBER,
+  public: GREEN,
+};
+ASPECTS.push({
+  key: 'security',
+  title: 'Security',
+  icon: '🔒',
+  lensLabel: 'Security lens',
+  badge: false,
+  color: (d) => (d?.status ? SECURITY_COLORS[d.status] ?? GRAY : GRAY),
+  metric: (d) => d?.status ?? 'no data',
+  headline: (d) => d?.status ?? 'no data',
+});
+
+// Lifecycle stage: invest vs. retire at a glance; lens only.
+const LIFECYCLE_COLORS: Record<string, string> = { experimental: BLUE, active: GREEN, deprecated: AMBER, sunset: RED };
+ASPECTS.push({
+  key: 'lifecycle',
+  title: 'Lifecycle',
+  icon: '🧬',
+  lensLabel: 'Lifecycle lens',
+  badge: false,
+  color: (d) => (d?.status ? LIFECYCLE_COLORS[d.status] ?? GRAY : GRAY),
+  metric: (d) => d?.status ?? 'no data',
+  headline: (d) => d?.status ?? 'no data',
+});
+
+// Criticality tier: blast-radius awareness; lens only.
+const TIER_COLORS: Record<string, string> = { T0: RED, T1: AMBER, T2: BLUE, T3: GRAY };
+ASPECTS.push({
+  key: 'tier',
+  title: 'Tier',
+  icon: '🎯',
+  lensLabel: 'Criticality lens',
+  badge: false,
+  color: (d) => (d?.status ? TIER_COLORS[d.status] ?? GRAY : GRAY),
+  metric: (d) => d?.status ?? 'no data',
+  headline: (d) => d?.status ?? 'no data',
+});
+
+// Tech stack: categorical colour by primary language; lens only.
+ASPECTS.push({
+  key: 'tech',
+  title: 'Tech',
+  icon: '🛠️',
+  lensLabel: 'Tech lens',
+  badge: false,
+  color: (d) => categoryColor(d?.status),
+  metric: (d) => d?.status ?? 'no data',
+  headline: (d) => d?.status ?? 'no data',
+});
+
 // Scan drift: written by mergeScan on re-import (added / changed); lens only.
 ASPECTS.push({
   key: 'drift',

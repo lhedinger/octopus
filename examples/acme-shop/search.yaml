@@ -30,3 +30,7 @@ health:
 environments:
   staging: { version: 1.1.0 }
   production: { version: 1.0.4 }
+lifecycle: active
+tier: T2
+version: 1.0.4
+tech: [Python 3.12, FastAPI]

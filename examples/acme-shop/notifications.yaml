@@ -9,8 +9,10 @@ dependencies:
   # Not scanned — appear on the map as external-system stubs.
   - repo: ses
     label: SMTP API
+    auth: api-key
   - repo: fcm
     label: push API
+    auth: none
 modules:
   - name: Email
     description: Transactional email delivery
@@ -32,3 +34,7 @@ health:
 environments:
   staging: { version: 2.0.0 }
   production: { version: 1.9.9, status: degraded }
+lifecycle: active
+tier: T3
+version: 1.9.9
+tech: [TypeScript, Node 20]

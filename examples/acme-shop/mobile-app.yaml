@@ -19,3 +19,7 @@ deploy: [beta, app stores]
 health:
   status: healthy
   uptime: 99.8
+lifecycle: active
+tier: T1
+version: 6.1.0
+tech: [Kotlin, Swift]
