@@ -1,119 +1,138 @@
 # Data-field roadmap
 
-Catalogue of data fields the map does not carry yet, mapped to the entity they
-attach to and the surface that should render them. Companion to
-[scan-format.md](scan-format.md) (what exists today).
+Catalogue of data fields the map does not carry yet, grouped by the **lens /
+perspective** they serve. Each row names the entity the field attaches to and
+the surface that renders it. Companion to [scan-format.md](scan-format.md)
+(what exists today).
 
-**Surfaces legend** — every field lands on one of the existing render
-mechanisms, never a new screen:
+**Surfaces legend** — every field lands on an existing render mechanism, never
+a new screen:
 
 | Surface | Meaning |
 |---|---|
 | badge | chip in the tile badge strip |
 | dot | always-on ambient signal (reserved: health) |
 | lens | map-wide tint + metric stamp |
-| card | facts card section (tap the tile / edge) |
+| card | facts card section (tap the tile / edge / zone) |
 | zone | grouping hull behind tiles |
 | env | environment-switcher stamp |
-| drill | spatial level (structure only) |
 
-Aspect data stays normalized: `{ status?, score?, items? }` — new aspects
-that fit it are one provider entry. Fields marked ⚠ need a shape extension.
+Aspect data stays normalized: `{ status?, score?, items? }` — new aspects that
+fit it are one provider entry. Fields marked ⚠ need a shape extension.
 
-## Component (repo / service)
+## 🔒 Security lens (new)
 
-| Field | Purpose | Surfaces | Prio |
-|---|---|---|---|
-| `links` (repo, docs, runbook, dashboard) ⚠ | jump to the real artifacts | card | high |
-| `tech` (language, runtime, framework) | stack at a glance | card, lens (categorical) | high |
-| `lifecycle` (experimental/active/deprecated/sunset) | what to invest in vs. retire | lens, card | high |
-| `tier` / criticality (T0–T3) | blast-radius awareness | lens | high |
-| `version` (current release) | release state without env view | card | med |
-| `slo` (target %, error budget left) ⚠ | run-it accountability | card (health section) | high |
-| `oncall` (rota name, current person) | who to page | card (owner section) | high |
-| `incidents` (active count, last incident date) | operational memory | badge count, card | med |
-| `alerts` (active count) | live noise level | dot intensity, card | med |
-| `vulnerabilities` (count by severity) | security posture | lens (security aspect), card | high |
-| `dataClassification` (public/internal/PII/PCI) | compliance surface | lens, card | high |
-| `compliance` tags (GDPR, PCI-DSS, SOC2) | audit scope | card | low |
-| `sbom` summary (deps total / outdated / vulnerable) | supply-chain health | lens, card | med |
-| `cost` (monthly, budget delta) ⚠ | FinOps view | lens, card | med |
-| `activity` (open PRs, issues, last commit) | work in flight | card, lens | med |
-| `scorecard` (platform maturity grade) | golden-path adoption | lens (fits `score`) | low |
-| `apiSpec` (OpenAPI/AsyncAPI link) | contract source of truth | card | med |
+| Field | Entity | Purpose | Surfaces | Prio |
+|---|---|---|---|---|
+| `vulnerabilities` (count by severity) | component | security posture | lens, card | high |
+| `dataClassification` (public/internal/PII/PCI) | component, storage | where sensitive data lives | lens, card | high |
+| `auth` (mTLS/api-key/none) | edge | security of each hop | lens (edge colour), card | high |
+| `compliance` tags (GDPR, PCI-DSS, SOC2) | component | audit scope | card | low |
 
-## Dependency edge
+## ❤️ Health / run-it lens (extend existing)
 
-| Field | Purpose | Surfaces | Prio |
-|---|---|---|---|
-| `protocol` (http/grpc/amqp/sql) | how they talk | card, edge style | high |
-| `auth` (mTLS/api-key/none) | security of the hop | card, security lens on edges | high |
-| `latency` (p50/p99) ⚠ | runtime behaviour | card; health lens could colour edges | high |
-| `errorRate` | failing integrations | health lens (edge colour), card | high |
-| `contractVersion` + `deprecated` flag | breaking-change runway | card, drift lens | med |
-| `golden` (on the critical user path) | which edges matter most | lens highlight | med |
-| `rateLimit` / quota | back-pressure contracts | card | low |
-| `dataFlow` direction (payload vs call) | data-lineage perspective | future data lens | low |
+| Field | Entity | Purpose | Surfaces | Prio |
+|---|---|---|---|---|
+| `slo` (target %, error budget left) ⚠ | component | run-it accountability | card (health section) | high |
+| `oncall` (rota, current person) | component | who to page | card (owner section) | high |
+| `incidents` (active count, last incident) | component | operational memory | badge count, card | med |
+| `alerts` (active count) | component | live noise level | dot intensity, card | med |
+| `latency` (p50/p99) ⚠ | edge | runtime behaviour | lens (edge colour), card | high |
+| `errorRate` | edge | failing integrations | lens (edge colour), card | high |
+| `golden` (on the critical user path) | edge | which edges matter most | lens highlight | med |
+| `backup` (policy, last run) | storage | disaster readiness | card | med |
+| trigger `slo` (p99 target) | behavior block | per-entry-point budgets | card | med |
 
-## Storage
+## 🧬 Lifecycle & criticality lens (new)
 
-Storage tiles currently carry no facts at all.
+| Field | Entity | Purpose | Surfaces | Prio |
+|---|---|---|---|---|
+| `lifecycle` (experimental/active/deprecated/sunset) | component | invest vs. retire | lens, card | high |
+| `tier` (T0–T3 criticality) | component | blast-radius awareness | lens | high |
+| `version` (current release) | component | release state without env view | card | med |
+| `contractVersion` + `deprecated` flag | edge | breaking-change runway | card, drift lens | med |
 
-| Field | Purpose | Surfaces | Prio |
-|---|---|---|---|
-| `engine` + version (postgres 15) | what it actually is | card | high |
-| `dataClassification` (PII/PCI) | where sensitive data lives | security lens, card | high |
-| `size` / growth | capacity awareness | card | med |
-| `backup` (policy, last run) | disaster readiness | card, health-style dot | med |
-| `retention` policy | compliance | card | low |
-| `owner` (if different from host team) | data ownership | ownership lens | low |
+## 🛠 Tech lens (new)
 
-## Module (second layer)
+| Field | Entity | Purpose | Surfaces | Prio |
+|---|---|---|---|---|
+| `tech` (language, runtime, framework) | component | stack at a glance | lens (categorical), card | high |
+| `protocol` (http/grpc/amqp/sql) | edge | how they talk | card, edge style | high |
+| `engine` + version (postgres 15) | storage | what it actually is | card | high |
+| `apiSpec` (OpenAPI/AsyncAPI link) | component | contract source of truth | card | med |
+| `publicApi` (exported surface) | module | intended coupling points | card | med |
 
-| Field | Purpose | Surfaces | Prio |
-|---|---|---|---|
-| `path` (src/…) | anchor to the codebase | card | high |
-| per-module `test` coverage | hotspot-level quality | module badges/lens (extend BADGE_KINDS) | med |
-| `churn` (commits touching it) | volatility hotspots | lens | med |
-| `loc` / size | weight of the subdomain | card, tile size later | low |
-| `publicApi` (exported surface) | intended coupling points | card | med |
+## 🔄 Activity lens (new)
 
-## Behavior (third layer)
+| Field | Entity | Purpose | Surfaces | Prio |
+|---|---|---|---|---|
+| `activity` (open PRs, issues, last commit) | component | work in flight | lens, card | med |
+| `churn` (commits touching it) | module | volatility hotspots | lens | med |
 
-| Field | Purpose | Surfaces | Prio |
-|---|---|---|---|
-| block `codeRef` (file/handler path) | jump from flow to code | card | high |
-| flow-edge `condition` (expression) | real branch semantics | edge label/card | med |
-| flow-edge `frequency`/probability | which paths dominate | edge width | low |
-| trigger `slo` (p99 target) | per-entry-point budgets | card | med |
+## 🧪 Test lens (extend existing)
 
-## Environment (env view)
+| Field | Entity | Purpose | Surfaces | Prio |
+|---|---|---|---|---|
+| per-module `test` coverage | module | hotspot-level quality | module badges/lens | med |
 
-| Field | Purpose | Surfaces | Prio |
-|---|---|---|---|
-| `deployedAt`, `deployer`, `commit` | provenance of what runs | env card | high |
-| `target` (cluster/region/cloud) | infra topology | env stamp, card | high |
-| `replicas` / autoscaling range | scale posture | env card | med |
-| `featureFlags` active | config divergence | env card | low |
-| `configDrift` flag | env vs. declared state | drift lens per env | med |
+## 💰 Cost lens (new)
 
-## System / project level
+| Field | Entity | Purpose | Surfaces | Prio |
+|---|---|---|---|---|
+| `cost` (monthly, budget delta) ⚠ | component | FinOps view | lens, card | med |
 
-| Field | Purpose | Surfaces | Prio |
-|---|---|---|---|
-| scan metadata (`scannedAt`, scanner version, source commits) | honesty of the map; enables real drift/history | toolbar/status, drift | high |
-| context-map relationships (upstream/downstream, ACL, conformist) | DDD context map between zones | zone-to-zone edges | high |
-| team metadata (members, channel, escalation) | zones become tappable | zone card | med |
-| glossary per context (ubiquitous language) | shared vocabulary | zone card | low |
-| target architecture (planned nodes/edges) | current vs. intended | overlay/ghost tiles | med |
-| snapshots (scan history) | time scrubbing | timeline control | med |
+## 🌍 Environment view (extend existing)
+
+| Field | Entity | Purpose | Surfaces | Prio |
+|---|---|---|---|---|
+| `deployedAt`, `deployer`, `commit` | environment | provenance of what runs | env card | high |
+| `target` (cluster/region/cloud) | environment | infra topology | env stamp, card | high |
+| `replicas` / autoscaling range | environment | scale posture | env card | med |
+| `featureFlags` active | environment | config divergence | env card | low |
+| `configDrift` flag | environment | env vs. declared state | drift lens per env | med |
+
+## 🔀 Drift / time perspective (extend existing)
+
+| Field | Entity | Purpose | Surfaces | Prio |
+|---|---|---|---|---|
+| scan metadata (`scannedAt`, scanner version, source commits) | system | honesty of the map; real drift/history | toolbar/status, drift | high |
+| snapshots (scan history) | system | time scrubbing | timeline control | med |
+| target architecture (planned nodes/edges) | system | current vs. intended | overlay/ghost tiles | med |
+
+## 🧭 Zones / context perspective (extend existing)
+
+| Field | Entity | Purpose | Surfaces | Prio |
+|---|---|---|---|---|
+| context-map relationships (upstream/downstream, ACL, conformist) | system | DDD context map between zones | zone-to-zone edges | high |
+| team metadata (members, channel, escalation) | system | zones become tappable | zone card | med |
+| glossary per context (ubiquitous language) | system | shared vocabulary | zone card | low |
+
+## 📎 Card-only (no lens)
+
+| Field | Entity | Purpose | Surfaces | Prio |
+|---|---|---|---|---|
+| `links` (repo, docs, runbook, dashboard) ⚠ | component | jump to the real artifacts | card | high |
+| `size` / growth | storage | capacity awareness | card | med |
+| `retention` policy | storage | compliance | card | low |
+| `path` (src/…) | module | anchor to the codebase | card | high |
+| `loc` / size | module | weight of the subdomain | card | low |
+| block `codeRef` (file/handler path) | behavior block | jump from flow to code | card | high |
+| flow-edge `condition` (expression) | behavior flow | real branch semantics | edge label/card | med |
+| flow-edge `frequency`/probability | behavior flow | which paths dominate | edge width | low |
+| `rateLimit` / quota | edge | back-pressure contracts | card | low |
+
+## 🗃 Data perspective (future)
+
+| Field | Entity | Purpose | Surfaces | Prio |
+|---|---|---|---|---|
+| `dataFlow` direction (payload vs call) | edge | data lineage | data lens | low |
 
 ## Suggested next slices
 
-1. **Links + tech + lifecycle + tier** on components — pure card/lens work, no
-   new mechanisms, high daily value.
-2. **Security slice** — `vulnerabilities` + `dataClassification` on components
-   and storage, `auth` on edges: one new lens, huge audit value.
-3. **Run-it slice** — `slo`, `oncall`, `incidents`, edge `latency`/`errorRate`:
+1. **Lifecycle & tech + links** — pure card/lens work, no new mechanisms,
+   high daily value.
+2. **Security slice** — vulnerabilities + data classification (components and
+   storage), edge auth: one new lens, huge audit value.
+3. **Run-it slice** — SLO, on-call, incidents, edge latency/error rate:
    completes "you build it you run it".
 4. **Scan metadata** — prerequisite for trustworthy drift and history.
